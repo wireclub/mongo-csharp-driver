@@ -405,26 +405,26 @@ namespace MongoDB.Driver.GridFS {
             throw new NotImplementedException();
         }
 
-        public MongoGridFSFileInfo Upload(
-            Stream stream,
-            string remoteFileName
-        ) {
-            using (database.RequestStart()) {
+        public MongoGridFSFileInfo Upload(Stream stream, string remoteFileName) 
+        {
+            using (database.RequestStart()) 
+            {
                 chunks.EnsureIndex("files_id", "n");
+                files.EnsureIndex("filename");
 
-                BsonObjectId files_id = BsonObjectId.GenerateNewId();
+                var files_id = BsonObjectId.GenerateNewId();
                 var chunkSize = settings.DefaultChunkSize;
                 var buffer = new byte[chunkSize];
 
                 var length = 0;
-                for (int n = 0; true; n++) {
-                    int bytesRead = stream.Read(buffer, 0, chunkSize);
+                for (var n = 0;; n++) {
+                    var bytesRead = stream.Read(buffer, 0, chunkSize);
                     if (bytesRead == 0) {
                         break;
                     }
                     length += bytesRead;
 
-                    byte[] data = buffer;
+                    var data = buffer;
                     if (bytesRead < chunkSize) {
                         data = new byte[bytesRead];
                         Buffer.BlockCopy(buffer, 0, data, 0, bytesRead);
@@ -450,7 +450,7 @@ namespace MongoDB.Driver.GridFS {
                 var md5Result = database.RunCommand(md5Command);
                 var md5 = md5Result.Response["md5"].AsString;
 
-                BsonDocument fileInfo = new BsonDocument {
+                var fileInfo = new BsonDocument {
                     { "_id", files_id },
                     { "filename", remoteFileName },
                     { "length", length },
@@ -461,88 +461,6 @@ namespace MongoDB.Driver.GridFS {
                 files.Insert(fileInfo, settings.SafeMode);
 
                 return FindOneById(files_id);
-            }
-        }
-
-        public void BatchUpload(Dictionary<string, byte[]> batch)
-        {
-            chunks.EnsureIndex("files_id", "n");
-            var chunkSize = settings.DefaultChunkSize;
-
-            // Submit chunks
-            var docs = new Dictionary<BsonObjectId, BsonDocument>();
-            foreach (var pair in batch)
-            {
-                // Upload lean does not support chunking
-                if (pair.Value.Length > chunkSize)
-                    throw new NotSupportedException();
-
-                // Insert chunk
-                var files_id = BsonObjectId.GenerateNewId();
-                var chunk = new BsonDocument {
-                        { "_id", BsonObjectId.GenerateNewId() },
-                        { "files_id", files_id },
-                        { "n", 0 },
-                        { "data", new BsonBinaryData(pair.Value) }
-                    };
-                docs.Add(files_id, chunk);
-            }
-            chunks.InsertBatch(docs.Values, settings.SafeMode);
-
-            // TODO: IF THIS EXPERIMENT WORKS, MUST COMPUTE MD5s
-            // var md5 = MD5.Create().ComputeHash(data);
-
-            // TODO: IF THIS EXPERIMENT WORKS, MUST SUBMIT FILE DESCRIPTORS
-            /* foreach (var doc in docs)
-            {
-                // Insert document          
-                var fileInfo = new BsonDocument {
-                    { "_id", files_id },
-                    { "filename", remoteFileName },
-                    { "length", length },
-                    { "chunkSize", chunkSize },
-                    { "uploadDate", DateTime.UtcNow },
-                    { "md5", md5 }
-                };    
-            }
-            files.Insert(fileInfo, settings.SafeMode);
-            */
-        }
-
-        public void UploadLean(Stream stream, string remoteFileName)
-        {
-            using (database.RequestStart())
-            {
-                chunks.EnsureIndex("files_id", "n");
-                var files_id = BsonObjectId.GenerateNewId();
-                var chunkSize = settings.DefaultChunkSize;
-                
-                // Upload lean does not support chunking
-                if (stream.Length > chunkSize)
-                    throw new NotSupportedException();
-               
-                // Insert chunk
-                var data = new byte[chunkSize];
-                var length = stream.Read(data, 0, chunkSize);
-                var chunk = new BsonDocument {
-                        { "_id", BsonObjectId.GenerateNewId() },
-                        { "files_id", files_id },
-                        { "n", 0 },
-                        { "data", new BsonBinaryData(data) }
-                    };
-                chunks.Insert(chunk, settings.SafeMode);
-
-                // Insert document
-                var md5 = MD5.Create().ComputeHash(data);
-                var fileInfo = new BsonDocument {
-                    { "_id", files_id },
-                    { "filename", remoteFileName },
-                    { "length", length },
-                    { "chunkSize", chunkSize },
-                    { "uploadDate", DateTime.UtcNow },
-                    { "md5", md5 }
-                };
-                files.Insert(fileInfo, settings.SafeMode);
             }
         }
 
