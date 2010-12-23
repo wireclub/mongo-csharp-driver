@@ -464,44 +464,6 @@ namespace MongoDB.Driver.GridFS {
             }
         }
 
-        public void UploadLean(Stream stream, string remoteFileName)
-        {
-            using (database.RequestStart())
-            {
-                chunks.EnsureIndex("files_id", "n");
-                var files_id = BsonObjectId.GenerateNewId();
-                var chunkSize = settings.DefaultChunkSize;
-                
-                // Upload lean does not support chunking
-                if (stream.Length > chunkSize)
-                    throw new NotSupportedException();
-               
-                // Insert chunk
-                var data = new byte[chunkSize];
-                var length = stream.Read(data, 0, chunkSize);
-                var chunk = new BsonDocument {
-                        { "_id", BsonObjectId.GenerateNewId() },
-                        { "files_id", files_id },
-                        { "n", 0 },
-                        { "data", new BsonBinaryData(data) }
-                    };
-                chunks.Insert(chunk, settings.SafeMode);
-
-                // Insert document
-                var md5 = MD5.Create().ComputeHash(data);
-                var fileInfo = new BsonDocument {
-                    { "_id", files_id },
-                    { "filename", remoteFileName },
-                    { "length", length },
-                    { "chunkSize", chunkSize },
-                    { "uploadDate", DateTime.UtcNow },
-                    { "md5", md5 }
-                };
-                files.Insert(fileInfo, settings.SafeMode);
-            }
-        }
-
-
         public MongoGridFSFileInfo Upload(
             string fileName
         ) {
