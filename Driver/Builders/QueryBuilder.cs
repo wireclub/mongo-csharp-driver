@@ -16,9 +16,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 
 using MongoDB.Bson;
+using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 
@@ -69,7 +72,22 @@ namespace MongoDB.Driver.Builders {
             return new QueryComplete(new BsonDocument(name, value));
         }
 
-        public static QueryConditionList Exists(
+		public static QueryComplete EQ<TModel,TProperty>(
+			Expression<Func<TModel, TProperty>> expression,
+			BsonValue value)
+		{
+			if (expression.Body.NodeType != ExpressionType.MemberAccess)
+				throw new InvalidOperationException("Expression must be a member access");
+
+			var name = expression.Body.ToString().Substring(expression.Parameters[0].Name.Length + 1);
+			foreach (var attribute in ((MemberExpression)expression.Body).Member.GetCustomAttributes(false))
+				if (attribute is BsonElementAttribute)
+					name = ((BsonElementAttribute)attribute).ElementName;
+
+			return EQ(name == "Id" ? "_id" : name, value);
+		}
+
+    	public static QueryConditionList Exists(
             string name,
             bool value
         ) {
