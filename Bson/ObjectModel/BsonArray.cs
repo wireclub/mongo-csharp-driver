@@ -83,6 +83,14 @@ namespace MongoDB.Bson {
             AddRange(values);
         }
 
+		public BsonArray(
+			IEnumerable<ObjectId> values
+			)
+			: base(BsonType.Array)
+		{
+			AddRange(values);
+		}
+
         public BsonArray(
             IEnumerable<string> values
         )
@@ -319,7 +327,21 @@ namespace MongoDB.Bson {
             return this;
         }
 
-        public override BsonValue Clone() {
+		public BsonArray AddRange(
+			IEnumerable<ObjectId> values
+		) {
+			if (values != null)
+			{
+				foreach (var value in values)
+				{
+					this.values.Add(BsonString.Create(value));
+				}
+			}
+			return this;
+		}
+
+
+    	public override BsonValue Clone() {
             BsonArray clone = new BsonArray();
             foreach (var value in values) {
                 clone.Add(value.Clone());
