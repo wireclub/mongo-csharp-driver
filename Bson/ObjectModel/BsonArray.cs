@@ -334,7 +334,7 @@ namespace MongoDB.Bson {
 			{
 				foreach (var value in values)
 				{
-					this.values.Add(BsonString.Create(value));
+					this.values.Add(BsonObjectId.Create(value));
 				}
 			}
 			return this;
