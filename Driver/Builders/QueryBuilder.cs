@@ -64,6 +64,11 @@ namespace MongoDB.Driver.Builders {
         ) {
             return new QueryConditionList(name, "$elemMatch", query.ToBsonDocument());
         }
+        
+        public static QueryComplete ID(BsonValue value)
+        {
+            return new QueryComplete(new BsonDocument("_id", value));
+        }
 
         public static QueryComplete EQ(
             string name,
