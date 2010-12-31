@@ -129,6 +129,7 @@ namespace MongoDB.Driver.GridFS {
         public void Delete(
             string remoteFileName
         ) {
+            files.EnsureIndex("filename", "uploadDate");
             Delete(Query.EQ("filename", remoteFileName));
         }
 
@@ -164,6 +165,8 @@ namespace MongoDB.Driver.GridFS {
             MongoGridFSFileInfo fileInfo
         ) {
             using (database.RequestStart()) {
+                chunks.EnsureIndex("files_id", "n");
+
                 var numberOfChunks = (fileInfo.Length + fileInfo.ChunkSize - 1) / fileInfo.ChunkSize;
                 for (int n = 0; n < numberOfChunks; n++) {
                     var query = Query.And(
@@ -200,6 +203,7 @@ namespace MongoDB.Driver.GridFS {
             string remoteFileName,
             int version
         ) {
+            files.EnsureIndex("filename", "uploadDate");
             Download(stream, Query.EQ("filename", remoteFileName), version);
         }
 
@@ -268,6 +272,7 @@ namespace MongoDB.Driver.GridFS {
         public bool Exists(
             string fileName
         ) {
+            files.EnsureIndex("filename", "uploadDate");
             return Exists(Query.EQ("filename", fileName));
         }
 
@@ -286,6 +291,7 @@ namespace MongoDB.Driver.GridFS {
         public IEnumerable<MongoGridFSFileInfo> Find(
             string fileName
         ) {
+            files.EnsureIndex("filename", "uploadDate");
             return Find(Query.EQ("filename", fileName));
         }
 
@@ -329,6 +335,7 @@ namespace MongoDB.Driver.GridFS {
             string remoteFileName,
             int version
         ) {
+            files.EnsureIndex("filename", "uploadDate");
             return FindOne(Query.EQ("filename", remoteFileName), version);
         }
 
