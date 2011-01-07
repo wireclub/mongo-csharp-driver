@@ -187,7 +187,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestReplicaSetConnectionMode() {
-            string connectionString = "server=localhost;connect=replicaset";
+            string connectionString = "server=localhost;connect=replicaSet";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -204,7 +204,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestReplicaSetName() {
-            string connectionString = "server=localhost;replicaset=name";
+            string connectionString = "server=localhost;replicaSet=name";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -216,7 +216,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual("name", builder.ReplicaSetName);
             Assert.AreEqual(null, builder.SafeMode);
             Assert.AreEqual(false, builder.SlaveOk);
-            Assert.AreEqual("server=localhost;connect=replicaset;replicaset=name", builder.ToString()); // connect=replicaset added
+            Assert.AreEqual("server=localhost;connect=replicaSet;replicaSet=name", builder.ToString()); // connect=replicaSet added
         }
 
         [Test]
@@ -323,7 +323,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestSafeModeTrueW2WTimeout() {
-            string connectionString = "server=localhost;safe=true;w=2;wtimeout=2000";
+            string connectionString = "server=localhost;safe=true;w=2;wtimeout=2s";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -333,7 +333,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual(null, builder.DatabaseName);
             Assert.AreEqual(ConnectionMode.Direct, builder.ConnectionMode);
             Assert.AreEqual(null, builder.ReplicaSetName);
-            Assert.AreEqual(SafeMode.Create(2, TimeSpan.FromMilliseconds(2000)), builder.SafeMode);
+            Assert.AreEqual(SafeMode.Create(2, TimeSpan.FromSeconds(2)), builder.SafeMode);
             Assert.AreEqual(false, builder.SlaveOk);
             Assert.AreEqual(connectionString, builder.ToString());
         }
@@ -357,7 +357,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestSafeModeTrueFSyncTrueW2WTimeout() {
-            string connectionString = "server=localhost;safe=true;fsync=true;w=2;wtimeout=2000";
+            string connectionString = "server=localhost;safe=true;fsync=true;w=2;wtimeout=2s";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -367,14 +367,14 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual(null, builder.DatabaseName);
             Assert.AreEqual(ConnectionMode.Direct, builder.ConnectionMode);
             Assert.AreEqual(null, builder.ReplicaSetName);
-            Assert.AreEqual(SafeMode.Create(true, true, 2, TimeSpan.FromMilliseconds(2000)), builder.SafeMode);
+            Assert.AreEqual(SafeMode.Create(true, true, 2, TimeSpan.FromSeconds(2)), builder.SafeMode);
             Assert.AreEqual(false, builder.SlaveOk);
             Assert.AreEqual(connectionString, builder.ToString());
         }
 
         [Test]
         public void TestSlaveOkFalse() {
-            string connectionString = "server=localhost;slaveok=false";
+            string connectionString = "server=localhost;slaveOk=false";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -391,7 +391,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestSlaveOkTrue() {
-            string connectionString = "server=localhost;slaveok=true";
+            string connectionString = "server=localhost;slaveOk=true";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -408,7 +408,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestAll() {
-            string connectionString = "server=localhost;connect=replicaset;replicaset=name;safe=true;fsync=true;w=2;wtimeout=2000;slaveok=true";
+            string connectionString = "server=localhost;connect=replicaSet;replicaSet=name;safe=true;fsync=true;w=2;wtimeout=2s;slaveOk=true";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(null, builder.Username);
             Assert.AreEqual(null, builder.Password);
@@ -418,7 +418,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual(null, builder.DatabaseName);
             Assert.AreEqual(ConnectionMode.ReplicaSet, builder.ConnectionMode);
             Assert.AreEqual("name", builder.ReplicaSetName);
-            Assert.AreEqual(SafeMode.Create(true, true, 2, TimeSpan.FromMilliseconds(2000)), builder.SafeMode);
+            Assert.AreEqual(SafeMode.Create(true, true, 2, TimeSpan.FromSeconds(2)), builder.SafeMode);
             Assert.AreEqual(true, builder.SlaveOk);
             Assert.AreEqual(connectionString, builder.ToString());
         }

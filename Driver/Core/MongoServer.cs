@@ -40,6 +40,7 @@ namespace MongoDB.Driver {
         private MongoServerState state = MongoServerState.Disconnected;
         private IEnumerable<MongoServerAddress> replicaSet;
         private Dictionary<string, MongoDatabase> databases = new Dictionary<string, MongoDatabase>();
+        private MongoConnectionPoolSettings connectionPoolSettings;
         private MongoConnectionPool primaryConnectionPool;
         private List<MongoConnectionPool> secondaryConnectionPools;
         private int secondaryConnectionPoolIndex; // used to distribute reads across secondaries in round robin fashion
@@ -55,6 +56,7 @@ namespace MongoDB.Driver {
         ) {
             this.url = url;
             this.defaultCredentials = url.Credentials;
+            this.connectionPoolSettings = url.ConnectionPoolSettings;
 
             foreach (var address in url.Servers) {
                 addresses.Add(address);
@@ -113,6 +115,10 @@ namespace MongoDB.Driver {
 
         public IEnumerable<MongoServerAddress> Addresses {
             get { return addresses; }
+        }
+
+        public MongoConnectionPoolSettings ConnectionPoolSettings {
+            get { return connectionPoolSettings; }
         }
 
         public MongoCredentials DefaultCredentials {
@@ -204,7 +210,7 @@ namespace MongoDB.Driver {
         }
 
         public void Connect() {
-            Connect(MongoDefaults.ConnectTimeout);
+            Connect(connectionPoolSettings.ConnectTimeout);
         }
 
         public void Connect(
@@ -402,7 +408,7 @@ namespace MongoDB.Driver {
             }
 
             // get the connection outside of the lock
-            var connection = GetConnection(initialDatabase, false); // not slaveOk
+            var connection = AcquireConnection(initialDatabase, false); // not slaveOk
 
             lock (requestsLock) {
                 var request = new Request(connection);
@@ -437,7 +443,7 @@ namespace MongoDB.Driver {
         #endregion
 
         #region internal methods
-        internal MongoConnection GetConnection(
+        internal MongoConnection AcquireConnection(
             MongoDatabase database,
             bool slaveOk
         ) {
@@ -452,7 +458,7 @@ namespace MongoDB.Driver {
             }
 
             var connectionPool = GetConnectionPool(slaveOk);
-            var connection = connectionPool.GetConnection(database);
+            var connection = connectionPool.AcquireConnection(database);
 
             try {
                 connection.CheckAuthentication(this, database); // will authenticate if necessary
