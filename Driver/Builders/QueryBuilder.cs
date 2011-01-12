@@ -223,6 +223,15 @@ namespace MongoDB.Driver.Builders {
         ) {
             return QueryWrapper.Create(query);
         }
+
+		public static QueryConditionList Near(
+			string name,
+			BsonArray coords
+			)
+		{
+			return new QueryConditionList(name, "$near", coords);
+		}
+
         #endregion
     }
 
