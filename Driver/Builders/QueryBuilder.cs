@@ -232,6 +232,16 @@ namespace MongoDB.Driver.Builders {
 			return new QueryConditionList(name, "$near", coords);
 		}
 
+        public static QueryConditionList Near(
+            string name,
+            BsonArray coords,
+            double maxDistance
+            )
+        {
+            // TODO
+            return new QueryConditionList(name, "$near", coords);
+        }
+
         #endregion
     }
 
