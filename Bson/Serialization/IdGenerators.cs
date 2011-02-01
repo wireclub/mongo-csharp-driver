@@ -146,7 +146,6 @@ namespace MongoDB.Bson.Serialization {
 
         #region public methods
         public object GenerateId() {
-            throw new NotSupportedException("YOU MUST USE ENTITY ID TO GENERATE VALID IDS");
             return ObjectId.GenerateNewId();
         }
 
