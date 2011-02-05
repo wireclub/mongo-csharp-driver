@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -30,55 +30,48 @@ namespace MongoDB.Driver {
         #region private fields
         private MongoServer server;
         private MongoDatabase database;
+        private MongoCollectionSettings settings;
         private string name;
-        private SafeMode safeMode;
-        private bool assignIdOnInsert = true;
         private HashSet<string> indexCache = new HashSet<string>(); // serves as its own lock object also
         #endregion
 
         #region constructors
         protected MongoCollection(
             MongoDatabase database,
-            string name,
-            SafeMode safeMode
+            MongoCollectionSettings settings
         ) {
-            ValidateCollectionName(name);
+            ValidateCollectionName(settings.CollectionName);
             this.server = database.Server;
             this.database = database;
-            this.name = name;
-            this.safeMode = safeMode;
+            this.settings = settings;
+            this.name = settings.CollectionName;
         }
         #endregion
 
         #region public properties
-        public MongoDatabase Database {
+        public virtual MongoDatabase Database {
             get { return database; }
         }
 
-        public string FullName {
+        public virtual string FullName {
             get { return database.Name + "." + name; }
         }
 
-        public string Name {
+        public virtual string Name {
             get { return name; }
         }
 
-        public SafeMode SafeMode {
-            get { return safeMode; }
-        }
-
-        public bool AssignIdOnInsert {
-            get { return assignIdOnInsert; }
-            set { assignIdOnInsert = value; }
+        public virtual MongoCollectionSettings Settings {
+            get { return settings; }
         }
         #endregion
 
         #region public methods
-        public int Count() {
+        public virtual int Count() {
             return Count(Query.Null);
         }
 
-        public int Count(
+        public virtual int Count(
             IMongoQuery query
         ) {
             var command = new CommandDocument {
@@ -89,7 +82,7 @@ namespace MongoDB.Driver {
             return result.Response["n"].ToInt32();
         }
 
-        public SafeModeResult CreateIndex(
+        public virtual SafeModeResult CreateIndex(
             IMongoIndexKeys keys,
             IMongoIndexOptions options
         ) {
@@ -107,25 +100,25 @@ namespace MongoDB.Driver {
             return result;
         }
 
-        public SafeModeResult CreateIndex(
+        public virtual SafeModeResult CreateIndex(
             IMongoIndexKeys keys
         ) {
             return CreateIndex(keys, IndexOptions.Null);
         }
 
-        public SafeModeResult CreateIndex(
+        public virtual SafeModeResult CreateIndex(
             params string[] keyNames
         ) {
             return CreateIndex(IndexKeys.Ascending(keyNames));
         }
 
-        public IEnumerable<BsonValue> Distinct(
+        public virtual IEnumerable<BsonValue> Distinct(
             string key
         ) {
             return Distinct(key, Query.Null);
         }
 
-        public IEnumerable<BsonValue> Distinct(
+        public virtual IEnumerable<BsonValue> Distinct(
             string key,
             IMongoQuery query
         ) {
@@ -138,29 +131,29 @@ namespace MongoDB.Driver {
             return result.Response["values"].AsBsonArray;
         }
 
-        public void Drop() {
+        public virtual void Drop() {
             database.DropCollection(name);
         }
 
-        public CommandResult DropAllIndexes() {
+        public virtual CommandResult DropAllIndexes() {
             return DropIndexByName("*");
         }
 
-        public CommandResult DropIndex(
+        public virtual CommandResult DropIndex(
             IMongoIndexKeys keys
         ) {
             string indexName = GetIndexName(keys.ToBsonDocument(), null);
             return DropIndexByName(indexName);
         }
 
-        public CommandResult DropIndex(
+        public virtual CommandResult DropIndex(
             params string[] keyNames
         ) {
             string indexName = GetIndexName(keyNames);
             return DropIndexByName(indexName);
         }
 
-        public CommandResult DropIndexByName(
+        public virtual CommandResult DropIndexByName(
             string indexName
         ) {
             lock (indexCache) {
@@ -174,7 +167,7 @@ namespace MongoDB.Driver {
             }
         }
 
-        public void EnsureIndex(
+        public virtual void EnsureIndex(
            IMongoIndexKeys keys,
            IMongoIndexOptions options
         ) {
@@ -189,13 +182,13 @@ namespace MongoDB.Driver {
             }
         }
 
-        public void EnsureIndex(
+        public virtual void EnsureIndex(
             IMongoIndexKeys keys
         ) {
             EnsureIndex(keys, IndexOptions.Null);
         }
 
-        public void EnsureIndex(
+        public virtual void EnsureIndex(
             params string[] keyNames
         ) {
             lock (indexCache) {
@@ -207,15 +200,15 @@ namespace MongoDB.Driver {
             }
         }
 
-        public bool Exists() {
+        public virtual bool Exists() {
             return database.CollectionExists(name);
         }
 
-        public MongoCursor<TDocument> FindAllAs<TDocument>() {
+        public virtual MongoCursor<TDocument> FindAllAs<TDocument>() {
             return FindAs<TDocument>(Query.Null);
         }
 
-        public FindAndModifyResult FindAndModify(
+        public virtual FindAndModifyResult FindAndModify(
             IMongoQuery query,
             IMongoSortBy sortBy,
             IMongoUpdate update
@@ -223,7 +216,7 @@ namespace MongoDB.Driver {
             return FindAndModify(query, sortBy, update, Fields.Null, false);
         }
 
-        public FindAndModifyResult FindAndModify(
+        public virtual FindAndModifyResult FindAndModify(
             IMongoQuery query,
             IMongoSortBy sortBy,
             IMongoUpdate update,
@@ -232,7 +225,7 @@ namespace MongoDB.Driver {
             return FindAndModify(query, sortBy, update, Fields.Null, returnNew);
         }
 
-        public FindAndModifyResult FindAndModify(
+        public virtual FindAndModifyResult FindAndModify(
             IMongoQuery query,
             IMongoSortBy sortBy,
             IMongoUpdate update,
@@ -250,7 +243,7 @@ namespace MongoDB.Driver {
             return database.RunCommandAs<FindAndModifyResult>(command);
         }
 
-        public FindAndModifyResult FindAndRemove(
+        public virtual FindAndModifyResult FindAndRemove(
             IMongoQuery query,
             IMongoSortBy sortBy
         ) {
@@ -263,29 +256,29 @@ namespace MongoDB.Driver {
             return database.RunCommandAs<FindAndModifyResult>(command);
         }
 
-        public MongoCursor<TDocument> FindAs<TDocument>(
+        public virtual MongoCursor<TDocument> FindAs<TDocument>(
             IMongoQuery query
         ) {
             return new MongoCursor<TDocument>(this, query);
         }
 
-        public TDocument FindOneAs<TDocument>() {
+        public virtual TDocument FindOneAs<TDocument>() {
             return FindAllAs<TDocument>().SetLimit(1).FirstOrDefault();
         }
 
-        public TDocument FindOneAs<TDocument>(
+        public virtual TDocument FindOneAs<TDocument>(
             IMongoQuery query
         ) {
             return FindAs<TDocument>(query).SetLimit(1).FirstOrDefault();
         }
 
-        public TDocument FindOneByIdAs<TDocument>(
+        public virtual TDocument FindOneByIdAs<TDocument>(
             BsonValue id
         ) {
             return FindOneAs<TDocument>(Query.EQ("_id", id));
         }
 
-        public GeoNearResult<TDocument> GeoNearAs<TDocument>(
+        public virtual GeoNearResult<TDocument> GeoNearAs<TDocument>(
             IMongoQuery query,
             double x,
             double y,
@@ -294,7 +287,7 @@ namespace MongoDB.Driver {
             return GeoNearAs<TDocument>(query, x, y, limit, GeoNearOptions.Null);
         }
 
-        public GeoNearResult<TDocument> GeoNearAs<TDocument>(
+        public virtual GeoNearResult<TDocument> GeoNearAs<TDocument>(
             IMongoQuery query,
             double x,
             double y,
@@ -311,18 +304,18 @@ namespace MongoDB.Driver {
             return database.RunCommandAs<GeoNearResult<TDocument>>(command);
         }
 
-        public IEnumerable<BsonDocument> GetIndexes() {
+        public virtual IEnumerable<BsonDocument> GetIndexes() {
             var indexes = database.GetCollection("system.indexes");
             var query = Query.EQ("ns", FullName);
             return indexes.Find(query).ToList(); // force query to execute before returning
         }
 
-        public CollectionStatsResult GetStats() {
+        public virtual CollectionStatsResult GetStats() {
             var command = new CommandDocument("collstats", name);
             return database.RunCommandAs<CollectionStatsResult>(command);
         }
 
-        public long GetTotalDataSize() {
+        public virtual long GetTotalDataSize() {
             var totalSize = GetStats().DataSize;
             var indexes = GetIndexes();
             foreach (var index in indexes) {
@@ -334,7 +327,7 @@ namespace MongoDB.Driver {
             return totalSize;
         }
 
-        public long GetTotalStorageSize() {
+        public virtual long GetTotalStorageSize() {
             var totalSize = GetStats().StorageSize;
             var indexes = GetIndexes();
             foreach (var index in indexes) {
@@ -346,7 +339,7 @@ namespace MongoDB.Driver {
             return totalSize;
         }
 
-        public IEnumerable<BsonDocument> Group(
+        public virtual IEnumerable<BsonDocument> Group(
             IMongoQuery query,
             BsonJavaScript keyFunction,
             BsonDocument initial,
@@ -367,7 +360,7 @@ namespace MongoDB.Driver {
             return result.Response["retval"].AsBsonArray.Values.Cast<BsonDocument>();
         }
 
-        public IEnumerable<BsonDocument> Group(
+        public virtual IEnumerable<BsonDocument> Group(
             IMongoQuery query,
             IMongoGroupBy keys,
             BsonDocument initial,
@@ -388,7 +381,7 @@ namespace MongoDB.Driver {
             return result.Response["retval"].AsBsonArray.Values.Cast<BsonDocument>();
         }
 
-        public IEnumerable<BsonDocument> Group(
+        public virtual IEnumerable<BsonDocument> Group(
             IMongoQuery query,
             string key,
             BsonDocument initial,
@@ -398,21 +391,21 @@ namespace MongoDB.Driver {
             return Group(query, GroupBy.Keys(key), initial, reduce, finalize);
         }
 
-        public bool IndexExists(
+        public virtual bool IndexExists(
             IMongoIndexKeys keys
         ) {
             string indexName = GetIndexName(keys.ToBsonDocument(), null);
             return IndexExistsByName(indexName);
         }
 
-        public bool IndexExists(
+        public virtual bool IndexExists(
             params string[] keyNames
         ) {
             string indexName = GetIndexName(keyNames);
             return IndexExistsByName(indexName);
         }
 
-        public bool IndexExistsByName(
+        public virtual bool IndexExistsByName(
             string indexName
         ) {
             var indexes = database.GetCollection("system.indexes");
@@ -427,13 +420,13 @@ namespace MongoDB.Driver {
         // it's very easy for the compiler to end up inferring the wrong type for TDocument!
         // that's also why Insert and InsertBatch have to have different names
 
-        public SafeModeResult Insert<TDocument>(
+        public virtual SafeModeResult Insert<TDocument>(
             TDocument document
         ) {
-            return Insert(document, safeMode);
+            return Insert(document, settings.SafeMode);
         }
 
-        public SafeModeResult Insert<TDocument>(
+        public virtual SafeModeResult Insert<TDocument>(
             TDocument document,
             SafeMode safeMode
         ) {
@@ -441,13 +434,13 @@ namespace MongoDB.Driver {
             return (results == null) ? null : results.Single();
         }
 
-        public IEnumerable<SafeModeResult> InsertBatch<TDocument>(
+        public virtual IEnumerable<SafeModeResult> InsertBatch<TDocument>(
             IEnumerable<TDocument> documents
         ) {
-            return InsertBatch<TDocument>(documents, safeMode);
+            return InsertBatch<TDocument>(documents, settings.SafeMode);
         }
 
-        public IEnumerable<SafeModeResult> InsertBatch<TDocument>(
+        public virtual IEnumerable<SafeModeResult> InsertBatch<TDocument>(
             IEnumerable<TDocument> documents,
             SafeMode safeMode
         ) {
@@ -459,7 +452,7 @@ namespace MongoDB.Driver {
                     message.WriteToBuffer(); // must be called before AddDocument
 
                     foreach (var document in documents) {
-                        if (assignIdOnInsert) {
+                        if (settings.AssignIdOnInsert) {
                             var serializer = BsonSerializer.LookupSerializer(document.GetType());
                             object id;
                             IIdGenerator idGenerator;
@@ -490,11 +483,11 @@ namespace MongoDB.Driver {
             }
         }
 
-        public bool IsCapped() {
+        public virtual bool IsCapped() {
             throw new NotImplementedException();
         }
 
-        public MapReduceResult MapReduce(
+        public virtual MapReduceResult MapReduce(
             BsonJavaScript map,
             BsonJavaScript reduce,
             IMongoMapReduceOptions options
@@ -508,7 +501,7 @@ namespace MongoDB.Driver {
             return database.RunCommandAs<MapReduceResult>(command);
         }
 
-        public MapReduceResult MapReduce(
+        public virtual MapReduceResult MapReduce(
             IMongoQuery query,
             BsonJavaScript map,
             BsonJavaScript reduce,
@@ -518,7 +511,7 @@ namespace MongoDB.Driver {
             return MapReduce(map, reduce, MapReduceOptions.SetQuery(query).AddOptions(options.ToBsonDocument()));
         }
 
-        public MapReduceResult MapReduce(
+        public virtual MapReduceResult MapReduce(
             IMongoQuery query,
             BsonJavaScript map,
             BsonJavaScript reduce
@@ -526,38 +519,38 @@ namespace MongoDB.Driver {
             return MapReduce(map, reduce, MapReduceOptions.SetQuery(query));
         }
 
-        public MapReduceResult MapReduce(
+        public virtual MapReduceResult MapReduce(
             BsonJavaScript map,
             BsonJavaScript reduce
         ) {
             return MapReduce(map, reduce, MapReduceOptions.Null);
         }
 
-        public void ReIndex() {
+        public virtual void ReIndex() {
             throw new NotImplementedException();
         }
 
-        public SafeModeResult Remove(
+        public virtual SafeModeResult Remove(
             IMongoQuery query
         ) {
-            return Remove(query, RemoveFlags.None, safeMode);
+            return Remove(query, RemoveFlags.None, settings.SafeMode);
         }
 
-        public SafeModeResult Remove(
+        public virtual SafeModeResult Remove(
             IMongoQuery query,
             SafeMode safeMode
         ) {
             return Remove(query, RemoveFlags.None, safeMode);
         }
 
-        public SafeModeResult Remove(
+        public virtual SafeModeResult Remove(
             IMongoQuery query,
             RemoveFlags flags
         ) {
-            return Remove(query, flags, safeMode);
+            return Remove(query, flags, settings.SafeMode);
         }
 
-        public SafeModeResult Remove(
+        public virtual SafeModeResult Remove(
            IMongoQuery query,
            RemoveFlags flags,
            SafeMode safeMode
@@ -587,29 +580,29 @@ namespace MongoDB.Driver {
             }
         }
 
-        public SafeModeResult RemoveAll() {
-            return Remove(Query.Null, RemoveFlags.None, safeMode);
+        public virtual SafeModeResult RemoveAll() {
+            return Remove(Query.Null, RemoveFlags.None, settings.SafeMode);
         }
 
-        public SafeModeResult RemoveAll(
+        public virtual SafeModeResult RemoveAll(
            SafeMode safeMode
         ) {
             return Remove(Query.Null, RemoveFlags.None, safeMode);
         }
 
-        public void ResetIndexCache() {
+        public virtual void ResetIndexCache() {
             lock (indexCache) {
                 indexCache.Clear();
             }
         }
 
-        public SafeModeResult Save<TDocument>(
+        public virtual SafeModeResult Save<TDocument>(
             TDocument document
         ) {
-            return Save(document, safeMode);
+            return Save(document, settings.SafeMode);
         }
 
-        public SafeModeResult Save<TDocument>(
+        public virtual SafeModeResult Save<TDocument>(
             TDocument document,
             SafeMode safeMode
         ) {
@@ -632,14 +625,14 @@ namespace MongoDB.Driver {
  	        return FullName;
         }
 
-        public SafeModeResult Update(
+        public virtual SafeModeResult Update(
             IMongoQuery query,
             IMongoUpdate update
         ) {
-            return Update(query, update, UpdateFlags.None, safeMode);
+            return Update(query, update, UpdateFlags.None, settings.SafeMode);
         }
 
-        public SafeModeResult Update(
+        public virtual SafeModeResult Update(
             IMongoQuery query,
             IMongoUpdate update,
             SafeMode safeMode
@@ -647,15 +640,15 @@ namespace MongoDB.Driver {
             return Update(query, update, UpdateFlags.None, safeMode);
         }
 
-        public SafeModeResult Update(
+        public virtual SafeModeResult Update(
             IMongoQuery query,
             IMongoUpdate update,
             UpdateFlags flags
         ) {
-            return Update(query, update, flags, safeMode);
+            return Update(query, update, flags, settings.SafeMode);
         }
 
-        public SafeModeResult Update(
+        public virtual SafeModeResult Update(
             IMongoQuery query,
             IMongoUpdate update,
             UpdateFlags flags,
@@ -679,7 +672,7 @@ namespace MongoDB.Driver {
             }
         }
 
-        public ValidateCollectionResult Validate() {
+        public virtual ValidateCollectionResult Validate() {
             var command = new CommandDocument("validate", name);
             return database.RunCommandAs<ValidateCollectionResult>(command);
         }
@@ -754,41 +747,40 @@ namespace MongoDB.Driver {
         #region constructors
         public MongoCollection(
             MongoDatabase database,
-            string name,
-            SafeMode safeMode
+            MongoCollectionSettings<TDefaultDocument> settings
         )
-            : base(database, name, safeMode) {
+            : base(database, settings) {
         }
         #endregion
 
         #region public methods
-        public MongoCursor<TDefaultDocument> Find(
+        public virtual MongoCursor<TDefaultDocument> Find(
             IMongoQuery query
         ) {
             return FindAs<TDefaultDocument>(query);
         }
 
-        public MongoCursor<TDefaultDocument> FindAll() {
+        public virtual MongoCursor<TDefaultDocument> FindAll() {
             return FindAllAs<TDefaultDocument>();
         }
 
-        public TDefaultDocument FindOne() {
+        public virtual TDefaultDocument FindOne() {
             return FindOneAs<TDefaultDocument>();
         }
 
-        public TDefaultDocument FindOne(
+        public virtual TDefaultDocument FindOne(
             IMongoQuery query
         ) {
             return FindOneAs<TDefaultDocument>(query);
         }
 
-        public TDefaultDocument FindOneById(
+        public virtual TDefaultDocument FindOneById(
             BsonValue id
         ) {
             return FindOneByIdAs<TDefaultDocument>(id);
         }
 
-        public GeoNearResult<TDefaultDocument> GeoNear(
+        public virtual GeoNearResult<TDefaultDocument> GeoNear(
             IMongoQuery query,
             double x,
             double y,
@@ -797,7 +789,7 @@ namespace MongoDB.Driver {
             return GeoNearAs<TDefaultDocument>(query, x, y, limit);
         }
 
-        public GeoNearResult<TDefaultDocument> GeoNear(
+        public virtual GeoNearResult<TDefaultDocument> GeoNear(
             IMongoQuery query,
             double x,
             double y,

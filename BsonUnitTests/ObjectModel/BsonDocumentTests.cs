@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -65,9 +65,10 @@ namespace MongoDB.BsonUnitTests {
                 //    { "e", BsonValue.Create((object) true) }
                 //};
                 byte[] value = { 1, 2, 3, 4 };
-                var buffer = new BsonBuffer();
-                for (int n = 0; n < 100000; n++) {
-                    buffer.WriteBytes(value);
+                using (var buffer = new BsonBuffer()) {
+                    for (int n = 0; n < 100000; n++) {
+                        buffer.WriteBytes(value);
+                    }
                 }
             }
             end = DateTime.UtcNow;

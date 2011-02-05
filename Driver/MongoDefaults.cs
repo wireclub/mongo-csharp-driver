@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,21 +22,38 @@ using System.Text;
 namespace MongoDB.Driver {
     public static class MongoDefaults {
         #region public static fields
+        private static bool assignIdOnInsert = true;
         private static TimeSpan connectTimeout = TimeSpan.FromSeconds(30);
         private static TimeSpan maxConnectionIdleTime = TimeSpan.FromMinutes(10);
         private static TimeSpan maxConnectionLifeTime = TimeSpan.FromMinutes(30);
         private static int maxConnectionPoolSize = 100;
         private static int maxMessageLength = 16000000; // 16MB (not 16 MiB!)
         private static int minConnectionPoolSize = 0;
+        private static SafeMode safeMode = SafeMode.False;
         private static TimeSpan socketTimeout = TimeSpan.FromSeconds(30);
         private static int tcpReceiveBufferSize = 64 * 1024; // 64KiB (note: larger than 2MiB fails on Mac using Mono)
         private static int tcpSendBufferSize = 64 * 1024; // 64KiB (TODO: what is the optimum value for the buffers?)
-        private static double waitQueueMultiple = 1; // default multiple of 1
+        private static double waitQueueMultiple = 1.0; // default multiple of 1
         private static int waitQueueSize = 0; // use multiple by default
         private static TimeSpan waitQueueTimeout = TimeSpan.FromMilliseconds(500);
         #endregion
 
         #region public static properties
+        public static bool AssignIdOnInsert {
+            get { return assignIdOnInsert; }
+            set { assignIdOnInsert = value; }
+        }
+
+        public static int ComputedWaitQueueSize {
+            get {
+                if (waitQueueMultiple == 0.0) {
+                    return waitQueueSize;
+                } else {
+                    return (int) (waitQueueMultiple * maxConnectionPoolSize);
+                }
+            }
+        }
+
         public static TimeSpan ConnectTimeout {
             get { return connectTimeout; }
             set { connectTimeout = value; }
@@ -65,6 +82,11 @@ namespace MongoDB.Driver {
         public static int MinConnectionPoolSize {
             get { return minConnectionPoolSize; }
             set { minConnectionPoolSize = value; }
+        }
+
+        public static SafeMode SafeMode {
+            get { return safeMode; }
+            set { safeMode = value; }
         }
 
         public static TimeSpan SocketTimeout {

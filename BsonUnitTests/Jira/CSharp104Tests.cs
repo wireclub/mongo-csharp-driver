@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ namespace MongoDB.BsonUnitTests.Jira {
     public class CSharp104Tests {
         private static bool firstTime = true;
 
+#pragma warning disable 169 // never used
         private class Test {
             static Test() {
             }
@@ -51,6 +52,7 @@ namespace MongoDB.BsonUnitTests.Jira {
             public string GetOnly { get { return getOnly; } }
             public string SetOnly { set { setOnly = value; } }
         }
+#pragma warning restore
 
         [Test]
         public void TestClassMap() {

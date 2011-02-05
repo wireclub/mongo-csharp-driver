@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -104,7 +104,10 @@ namespace MongoDB.Driver.GridFS {
             MongoGridFSSettings rhs
         ) {
             if (rhs == null) { return false; }
-            return this.defaultChunkSize == rhs.defaultChunkSize && this.root == rhs.root && this.safeMode == rhs.safeMode;
+            return 
+                this.defaultChunkSize == rhs.defaultChunkSize &&
+                this.root == rhs.root && 
+                this.safeMode == rhs.safeMode;
         }
 
         public override bool Equals(object obj) {

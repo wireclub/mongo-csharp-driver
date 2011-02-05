@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -74,15 +74,16 @@ namespace MongoDB.Driver.Internal {
             buffer.WriteInt32(numberToSkip);
             buffer.WriteInt32(numberToReturn);
 
-            var bsonWriter = CreateBsonWriter();
-            if (query == null) {
-                bsonWriter.WriteStartDocument();
-                bsonWriter.WriteEndDocument();
-            } else {
-                BsonSerializer.Serialize(bsonWriter, query.GetType(), query, DocumentSerializationOptions.SerializeIdFirstInstance);
-            }
-            if (fields != null) {
-                BsonSerializer.Serialize(bsonWriter, fields);
+            using (var bsonWriter = CreateBsonWriter()) {
+                if (query == null) {
+                    bsonWriter.WriteStartDocument();
+                    bsonWriter.WriteEndDocument();
+                } else {
+                    BsonSerializer.Serialize(bsonWriter, query.GetType(), query, DocumentSerializationOptions.SerializeIdFirstInstance);
+                }
+                if (fields != null) {
+                    BsonSerializer.Serialize(bsonWriter, fields);
+                }
             }
         }
         #endregion

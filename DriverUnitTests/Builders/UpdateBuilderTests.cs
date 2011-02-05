@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -149,6 +149,13 @@ namespace MongoDB.DriverUnitTests.Builders {
         public void TestPushWrapped() {
             var update = Update.PushWrapped("name", a);
             var expected = "{ \"$push\" : { \"name\" : { \"X\" : 1 } } }";
+            Assert.AreEqual(expected, update.ToJson());
+        }
+
+        [Test]
+        public void TestRename() {
+            var update = Update.Rename("old", "new");
+            var expected = "{ '$rename' : { 'old' : 'new' } }".Replace("'", "\"");
             Assert.AreEqual(expected, update.ToJson());
         }
 

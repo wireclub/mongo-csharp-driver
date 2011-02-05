@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -40,12 +40,14 @@ namespace MongoDB.Bson.IO {
         #endregion
 
         #region internal properties
-        internal BsonDocumentReaderContext Context {
-            get { return context; }
-        }
-
         internal BsonValue CurrentValue {
             get { return currentValue; }
+        }
+        #endregion
+
+        #region internal methods
+        internal BsonDocumentReaderContext CloneContext() {
+            return context.Clone();
         }
         #endregion
     }

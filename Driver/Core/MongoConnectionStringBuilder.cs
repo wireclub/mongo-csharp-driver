@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -90,6 +90,16 @@ namespace MongoDB.Driver {
         #endregion
 
         #region public properties
+        public int ComputedWaitQueueSize {
+            get {
+                if (waitQueueMultiple == 0.0) {
+                    return waitQueueSize;
+                } else {
+                    return (int) (waitQueueMultiple * maxConnectionPoolSize);
+                }
+            }
+        }
+
         public ConnectionMode ConnectionMode {
             get { return connectionMode; }
             set {
@@ -372,29 +382,23 @@ namespace MongoDB.Driver {
             return canonicalKeywords.ContainsKey(keyword.ToLower());
         }
 
-        public MongoUrl ToMongoUrl() {
-            var builder = new MongoUrlBuilder {
-                Credentials = MongoCredentials.Create(username, password),
-                Servers = servers,
-                DatabaseName = databaseName,
-                ConnectionMode = connectionMode,
-                ConnectTimeout = connectTimeout,
-                MaxConnectionIdleTime = maxConnectionIdleTime,
-                MaxConnectionLifeTime = maxConnectionLifeTime,
-                MaxConnectionPoolSize = maxConnectionPoolSize,
-                MinConnectionPoolSize = minConnectionPoolSize,
-                ReplicaSetName = ReplicaSetName,
-                SafeMode = SafeMode,
-                SlaveOk = SlaveOk,
-                SocketTimeout = socketTimeout,
-                WaitQueueTimeout = waitQueueTimeout
-            };
-            if (waitQueueMultiple != 0) {
-                builder.WaitQueueMultiple = waitQueueMultiple;
-            } else {
-                builder.WaitQueueSize = waitQueueSize;
-            }
-            return builder.ToMongoUrl();
+        public MongoServerSettings ToServerSettings() {
+            return new MongoServerSettings(
+                connectionMode,
+                connectTimeout,
+                MongoCredentials.Create(username, password), // defaultCredentials
+                maxConnectionIdleTime,
+                maxConnectionLifeTime,
+                maxConnectionPoolSize,
+                minConnectionPoolSize,
+                replicaSetName,
+                safeMode ?? MongoDefaults.SafeMode,
+                servers,
+                slaveOk,
+                socketTimeout,
+                ComputedWaitQueueSize, // waitQueueSize
+                waitQueueTimeout
+            );
         }
         #endregion
 

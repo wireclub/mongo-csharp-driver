@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -317,10 +317,13 @@ namespace MongoDB.BsonUnitTests.Jira {
             Assert.IsTrue(bson.SequenceEqual(rehydrated.ToBson()));
 
             // test failure mode when 20 bytes are truncated from the buffer
-            var buffer = new BsonBuffer();
-            buffer.LoadFrom(new MemoryStream(bson));
-            buffer.Length -= 20;
-            Assert.Throws<EndOfStreamException>(() => BsonSerializer.Deserialize<BsonDocument>(BsonReader.Create(buffer)));
+            using (var buffer = new BsonBuffer()) {
+                buffer.LoadFrom(new MemoryStream(bson));
+                buffer.Length -= 20;
+                using (var bsonReader = BsonReader.Create(buffer)) {
+                    Assert.Throws<EndOfStreamException>(() => BsonSerializer.Deserialize<BsonDocument>(bsonReader));
+                }
+            }
         }
 
         [Test]

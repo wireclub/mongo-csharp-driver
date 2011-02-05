@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -60,6 +60,13 @@ namespace MongoDB.Bson {
         public static BsonDocument ToBsonDocument<T>(
             this T obj
         ) {
+            return obj.ToBsonDocument(null);
+        }
+
+        public static BsonDocument ToBsonDocument<T>(
+            this T obj,
+            IBsonSerializationOptions options
+        ) {
             if (obj == null) {
                 return null;
             }
@@ -74,17 +81,12 @@ namespace MongoDB.Bson {
                 return convertibleToBsonDocument.ToBsonDocument(); // use the provided ToBsonDocument method
             }
 
-            // otherwise serialize it and then deserialize it into a new BsonDocument
-            using (var buffer = new BsonBuffer()) {
-                using (var bsonWriter = BsonWriter.Create(buffer)) {
-                    BsonSerializer.Serialize<T>(bsonWriter, obj, null);
-                }
-                buffer.Position = 0;
-                using (var bsonReader = BsonReader.Create(buffer)) {
-                    var document = BsonSerializer.Deserialize<BsonDocument>(bsonReader);
-                    return document;
-                }
+            // otherwise serialize into a new BsonDocument
+            var document = new BsonDocument();
+            using (var writer = BsonWriter.Create(document)) {
+                BsonSerializer.Serialize<T>(writer, obj, options);
             }
+            return document;
         }
 
         public static string ToJson<T>(

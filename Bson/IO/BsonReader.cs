@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -67,9 +67,9 @@ namespace MongoDB.Bson.IO {
             Stream stream,
             BsonBinaryReaderSettings settings
         ) {
-            BsonBuffer buffer = new BsonBuffer();
-            buffer.LoadFrom(stream);
-            return new BsonBinaryReader(buffer, settings);
+            var reader = new BsonBinaryReader(null, settings);
+            reader.Buffer.LoadFrom(stream);
+            return reader;
         }
 
         public static BsonReader Create(

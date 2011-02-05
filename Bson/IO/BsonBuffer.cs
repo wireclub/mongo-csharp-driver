@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -24,13 +24,14 @@ namespace MongoDB.Bson.IO {
     public class BsonBuffer : IDisposable {
         #region private static fields
         private static Stack<byte[]> chunkPool = new Stack<byte[]>();
+        private static int maxChunkPoolSize = 64;
         private const int chunkSize = 16 * 1024; // 16KiB
         private static readonly bool[] validBsonTypes = new bool[256];
         #endregion
 
         #region private fields
         private bool disposed = false;
-        private List<byte[]> chunks = new List<byte[]>();
+        private List<byte[]> chunks = new List<byte[]>(4);
         private int capacity;
         private int length; // always use property to set so position can be adjusted if necessary
         private int position; // always use property to set so chunkIndex/chunkOffset/chunk/length will be set also
@@ -50,6 +51,21 @@ namespace MongoDB.Bson.IO {
         #region constructors
         public BsonBuffer() {
             // let EnsureAvailable get the first chunk
+        }
+        #endregion
+
+        #region public static properties
+        public static int MaxChunkPoolSize {
+            get {
+                lock (chunkPool) {
+                    return maxChunkPoolSize;
+                }
+            }
+            set {
+                lock (chunkPool) {
+                    maxChunkPoolSize = value;
+                }
+            }
         }
         #endregion
 
@@ -113,7 +129,7 @@ namespace MongoDB.Bson.IO {
             byte[] chunk
         ) {
             lock (chunkPool) {
-                if (chunkPool.Count < 64) {
+                if (chunkPool.Count < maxChunkPoolSize) {
                     chunkPool.Push(chunk);
                 }
             }
@@ -639,8 +655,8 @@ namespace MongoDB.Bson.IO {
             if (capacity - position < needed) {
                 // either we have no chunks or we just crossed a chunk boundary landing at chunkOffset 0
                 if (chunk == null) {
-                    chunks.Add(GetChunk());
-                    chunk = chunks.Last();
+                    chunk = GetChunk();
+                    chunks.Add(chunk);
                     capacity += chunkSize;
                 }
 

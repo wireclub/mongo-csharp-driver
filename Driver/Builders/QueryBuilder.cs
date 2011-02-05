@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -36,16 +36,16 @@ namespace MongoDB.Driver.Builders {
         #region public static methods
         public static QueryConditionList All(
             string name,
-            BsonArray array
+            BsonArray values
         ) {
-            return new QueryConditionList(name, "$all", array);
+            return new QueryConditionList(name).All(values);
         }
 
         public static QueryConditionList All(
             string name,
             params BsonValue[] values
         ) {
-            return new QueryConditionList(name, "$all", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryConditionList(name).All(values);
         }
 
         public static QueryComplete And(
@@ -53,7 +53,32 @@ namespace MongoDB.Driver.Builders {
         ) {
             var document = new BsonDocument();
             foreach (var query in queries) {
-                document.Add(query.ToBsonDocument());
+                foreach (var queryElement in query.ToBsonDocument()) {
+                    // if result document has existing operations for same field append the new ones
+                    if (document.Contains(queryElement.Name)) {
+                        var existingOperations = document[queryElement.Name] as BsonDocument;
+                        var newOperations = queryElement.Value as BsonDocument;
+
+                        // make sure that no conditions are Query.EQ, because duplicates aren't allowed
+                        if (existingOperations == null || newOperations == null) {
+                            var message = string.Format("Query.And does not support combining equality comparisons with other operators (field: '{0}')", queryElement.Name);
+                            throw new InvalidOperationException(message);
+                        }
+
+                        // add each new operation to the existing operations
+                        foreach (var operation in newOperations) {
+                            // make sure that there are no duplicate $operators
+                            if (existingOperations.Contains(operation.Name)) {
+                                var message = string.Format("Query.And does not support using the same operator more than once (field: '{0}', operator: '{1}')", queryElement.Name, operation.Name);
+                                throw new InvalidOperationException(message);
+                            } else {
+                                existingOperations.Add(operation);
+                            }
+                        }
+                    } else {
+                        document.Add(queryElement);
+                    }
+                }
             }
             return new QueryComplete(document);
         }
@@ -62,7 +87,7 @@ namespace MongoDB.Driver.Builders {
             string name,
             QueryComplete query
         ) {
-            return new QueryConditionList(name, "$elemMatch", query.ToBsonDocument());
+            return new QueryConditionList(name).ElemMatch(query);
         }
         
         public static QueryComplete ID(BsonValue value)
@@ -100,49 +125,49 @@ namespace MongoDB.Driver.Builders {
             string name,
             bool value
         ) {
-            return new QueryConditionList(name, "$exists", BsonBoolean.Create(value));
+            return new QueryConditionList(name).Exists(value);
         }
 
         public static QueryConditionList GT(
             string name,
             BsonValue value
         ) {
-            return new QueryConditionList(name, "$gt", value);
+            return new QueryConditionList(name).GT(value);
         }
 
         public static QueryConditionList GTE(
             string name,
             BsonValue value
         ) {
-            return new QueryConditionList(name, "$gte", value);
+            return new QueryConditionList(name).GTE(value);
         }
 
         public static QueryConditionList In(
             string name,
             BsonArray value
         ) {
-            return new QueryConditionList(name, "$in", value);
+            return new QueryConditionList(name).In(value);
         }
 
         public static QueryConditionList In(
             string name,
             params BsonValue[] values
         ) {
-            return new QueryConditionList(name, "$in", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryConditionList(name).In(values);
         }
 
         public static QueryConditionList LT(
             string name,
             BsonValue value
         ) {
-            return new QueryConditionList(name, "$lt", value);
+            return new QueryConditionList(name).LT(value);
         }
 
         public static QueryConditionList LTE(
             string name,
             BsonValue value
         ) {
-            return new QueryConditionList(name, "$lte", value);
+            return new QueryConditionList(name).LTE(value);
         }
 
         public static QueryComplete Matches(
@@ -157,28 +182,55 @@ namespace MongoDB.Driver.Builders {
             int modulus,
             int equals
         ) {
-            return new QueryConditionList(name, "$mod", new BsonArray { modulus, equals });
+            return new QueryConditionList(name).Mod(modulus, equals);
         }
 
         public static QueryConditionList NE(
             string name,
             BsonValue value
         ) {
-            return new QueryConditionList(name, "$ne", value);
+            return new QueryConditionList(name).NE(value);
+        }
+
+        public static QueryConditionList Near(
+            string name,
+            double x,
+            double y
+        ) {
+            return new QueryConditionList(name).Near(x, y);
+        }
+
+        public static QueryConditionList Near(
+            string name,
+            double x,
+            double y,
+            double maxDistance
+        ) {
+            return new QueryConditionList(name).Near(x, y, maxDistance);
+        }
+
+        public static QueryConditionList Near(
+            string name,
+            double x,
+            double y,
+            double maxDistance,
+            bool spherical
+        ) {
+            return new QueryConditionList(name).Near(x, y, maxDistance, spherical);
         }
 
         public static QueryConditionList NotIn(
             string name,
-            BsonArray array
+            BsonArray values
         ) {
-            return new QueryConditionList(name, "$nin", array);
+            return new QueryConditionList(name).NotIn(values);
         }
 
         public static QueryConditionList NotIn(
             string name,
             params BsonValue[] values
         ) {
-            return new QueryConditionList(name, "$nin", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryConditionList(name).NotIn(values);
         }
 
         public static QueryNot Not(
@@ -190,11 +242,11 @@ namespace MongoDB.Driver.Builders {
         public static QueryComplete Or(
             params QueryComplete[] queries
         ) {
-            var array = new BsonArray();
+            var clauses = new BsonArray();
             foreach (var query in queries) {
-                array.Add(query.ToBsonDocument());
+                clauses.Add(query.ToBsonDocument());
             }
-            var document = new BsonDocument("$or", array);
+            var document = new BsonDocument("$or", clauses);
             return new QueryComplete(document);
         }
 
@@ -202,20 +254,49 @@ namespace MongoDB.Driver.Builders {
             string name,
             int size
         ) {
-            return new QueryConditionList(name, "$size", size);
+            return new QueryConditionList(name).Size(size);
         }
 
         public static QueryConditionList Type(
             string name,
             BsonType type
         ) {
-            return new QueryConditionList(name, "$type", (int) type);
+            return new QueryConditionList(name).Type(type);
         }
 
         public static QueryComplete Where(
             BsonJavaScript javaScript
         ) {
             return new QueryComplete(new BsonDocument("$where", javaScript));
+        }
+
+        public static QueryConditionList WithinCircle(
+            string name,
+            double centerX,
+            double centerY,
+            double radius
+        ) {
+            return new QueryConditionList(name).WithinCircle(centerX, centerY, radius);
+        }
+
+        public static QueryConditionList WithinCircle(
+            string name,
+            double centerX,
+            double centerY,
+            double radius,
+            bool spherical
+        ) {
+            return new QueryConditionList(name).WithinCircle(centerX, centerY, radius, spherical);
+        }
+
+        public static QueryConditionList WithinRectangle(
+            string name,
+            double lowerLeftX,
+            double lowerLeftY,
+            double upperRightX,
+            double upperRightY
+        ) {
+            return new QueryConditionList(name).WithinRectangle(lowerLeftX, lowerLeftY, upperRightX, upperRightY);
         }
 
         public static IMongoQuery Wrap(
@@ -295,20 +376,18 @@ namespace MongoDB.Driver.Builders {
 
         #region constructors
         public QueryConditionList(
-            string name,
-            string op,
-            BsonValue value
+            string name
         )
-            : base(new BsonDocument(name, new BsonDocument(op, value))) {
+            : base(new BsonDocument(name, new BsonDocument())) {
             conditions = document[0].AsBsonDocument;
         }
         #endregion
 
         #region public methods
         public QueryConditionList All(
-            BsonArray array
+            BsonArray values
         ) {
-            conditions.Add("$all", array);
+            conditions.Add("$all", values);
             return this;
         }
 
@@ -348,9 +427,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         public QueryConditionList In(
-            BsonArray array
+            BsonArray values
         ) {
-            conditions.Add("$in", array);
+            conditions.Add("$in", values);
             return this;
         }
 
@@ -390,10 +469,39 @@ namespace MongoDB.Driver.Builders {
             return this;
         }
 
-        public QueryConditionList NotIn(
-            BsonArray array
+        public QueryConditionList Near(
+            double x,
+            double y
         ) {
-            conditions.Add("$nin", array);
+            return Near(x, y, double.MaxValue);
+        }
+
+        public QueryConditionList Near(
+            double x,
+            double y,
+            double maxDistance
+        ) {
+            return Near(x, y, maxDistance, false); // not spherical
+        }
+
+        public QueryConditionList Near(
+            double x,
+            double y,
+            double maxDistance,
+            bool spherical
+        ) {
+            var op = spherical ? "$nearSphere" : "$near";
+            conditions.Add(op, new BsonArray { x, y });
+            if (maxDistance != double.MaxValue) {
+                conditions.Add("$maxDistance", maxDistance);
+            }
+            return this;
+        }
+
+        public QueryConditionList NotIn(
+            BsonArray values
+        ) {
+            conditions.Add("$nin", values);
             return this;
         }
 
@@ -417,6 +525,35 @@ namespace MongoDB.Driver.Builders {
             conditions.Add("$type", (int) type);
             return this;
         }
+
+        public QueryConditionList WithinCircle(
+            double x,
+            double y,
+            double radius
+        ) {
+            return WithinCircle(x, y, radius, false); // not spherical
+        }
+
+        public QueryConditionList WithinCircle(
+            double x,
+            double y,
+            double radius,
+            bool spherical
+        ) {
+            var shape = spherical ? "$centerSphere" : "$center";
+            conditions.Add("$within", new BsonDocument(shape, new BsonArray { new BsonArray { x, y }, radius }));
+            return this;
+        }
+
+        public QueryConditionList WithinRectangle(
+            double lowerLeftX,
+            double lowerLeftY,
+            double upperRightX,
+            double upperRightY
+        ) {
+            conditions.Add("$within", new BsonDocument("$box", new BsonArray { new BsonArray { lowerLeftX, lowerLeftY }, new BsonArray { upperRightX, upperRightY } }));
+            return this;
+        }
         #endregion
     }
 
@@ -435,9 +572,9 @@ namespace MongoDB.Driver.Builders {
 
         #region public methods
         public QueryNotConditionList All(
-            BsonArray array
+            BsonArray values
         ) {
-            return new QueryNotConditionList(name, "$all", array);
+            return new QueryNotConditionList(name, "$all", values);
         }
 
         public QueryNotConditionList All(
@@ -471,9 +608,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         public QueryNotConditionList In(
-            BsonArray array
+            BsonArray values
         ) {
-            return new QueryNotConditionList(name, "$in", array);
+            return new QueryNotConditionList(name, "$in", values);
         }
 
         public QueryNotConditionList In(
@@ -496,9 +633,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         public QueryNotConditionList NotIn(
-            BsonArray array
+            BsonArray values
         ) {
-            return new QueryNotConditionList(name, "nin", array);
+            return new QueryNotConditionList(name, "nin", values);
         }
 
         public QueryNotConditionList NotIn(
@@ -558,9 +695,9 @@ namespace MongoDB.Driver.Builders {
 
         #region public methods
         public QueryNotConditionList All(
-            BsonArray array
+            BsonArray values
         ) {
-            conditions.Add("$all", array);
+            conditions.Add("$all", values);
             return this;
         }
 
@@ -600,9 +737,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         public QueryNotConditionList In(
-            BsonArray array
+            BsonArray values
         ) {
-            conditions.Add("$in", array);
+            conditions.Add("$in", values);
             return this;
         }
 
@@ -643,9 +780,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         public QueryNotConditionList NotIn(
-            BsonArray array
+            BsonArray values
         ) {
-            conditions.Add("$nin", array);
+            conditions.Add("$nin", values);
             return this;
         }
 

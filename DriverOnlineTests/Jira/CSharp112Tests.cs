@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ using MongoDB.Driver.Builders;
 namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
     [TestFixture]
     public class CSharp112Tests {
+#pragma warning disable 649 // never assigned to
         private class D {
             public int Id;
             public double N;
@@ -44,6 +45,7 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
             public int Id;
             public long N;
         }
+#pragma warning restore
 
         private MongoServer server;
         private MongoDatabase database;
@@ -105,7 +107,7 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
 
             for (int i = 0; i < values.Length; i++) {
                 var query = Query.EQ("_id", i + 1);
-                Assert.Throws<FileFormatException>(() => collection.FindOneAs<D>(query));
+                Assert.Throws<TruncationException>(() => collection.FindOneAs<D>(query));
             }
         }
 
@@ -139,11 +141,9 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
                 Assert.AreEqual(BsonValue.Create(values[i]).ToInt32(), document.N);
             }
 
-            // test with values that cause data loss
+            // test with values that cause overflow
             collection.RemoveAll();
             values = new object[] {
-                -1.5,
-                1.5,
                 ((long) Int32.MinValue - 1),
                 ((long) Int32.MaxValue + 1),
                 Int64.MinValue,
@@ -161,7 +161,26 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
 
             for (int i = 0; i < values.Length; i++) {
                 var query = Query.EQ("_id", i + 1);
-                Assert.Throws<FileFormatException>(() => collection.FindOneAs<I>(query));
+                Assert.Throws<OverflowException>(() => collection.FindOneAs<I>(query));
+            }
+
+            // test with values that cause truncation
+            collection.RemoveAll();
+            values = new object[] {
+                -1.5,
+                1.5
+            };
+            for (int i = 0; i < values.Length; i++) {
+                var document = new BsonDocument {
+                    { "_id", i + 1 },
+                    { "N", BsonValue.Create(values[i]) }
+                };
+                collection.Insert(document);
+            }
+
+            for (int i = 0; i < values.Length; i++) {
+                var query = Query.EQ("_id", i + 1);
+                Assert.Throws<TruncationException>(() => collection.FindOneAs<I>(query));
             }
         }
 
@@ -200,11 +219,9 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
                 Assert.AreEqual(BsonValue.Create(values[i]).ToInt64(), document.N);
             }
 
-            // test with values that cause data loss
+            // test with values that cause overflow
             collection.RemoveAll();
             values = new object[] {
-                -1.5,
-                1.5,
                 double.MaxValue,
                 double.MinValue
             };
@@ -218,7 +235,26 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp112 {
 
             for (int i = 0; i < values.Length; i++) {
                 var query = Query.EQ("_id", i + 1);
-                Assert.Throws<FileFormatException>(() => collection.FindOneAs<L>(query));
+                Assert.Throws<OverflowException>(() => collection.FindOneAs<L>(query));
+            }
+
+            // test with values that cause data truncation
+            collection.RemoveAll();
+            values = new object[] {
+                -1.5,
+                1.5
+            };
+            for (int i = 0; i < values.Length; i++) {
+                var document = new BsonDocument {
+                    { "_id", i + 1 },
+                    { "N", BsonValue.Create(values[i]) }
+                };
+                collection.Insert(document);
+            }
+
+            for (int i = 0; i < values.Length; i++) {
+                var query = Query.EQ("_id", i + 1);
+                Assert.Throws<TruncationException>(() => collection.FindOneAs<L>(query));
             }
         }
     }

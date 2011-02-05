@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -187,14 +187,25 @@ namespace MongoDB.Driver.GridFS {
         public MongoGridFSFileInfo CopyTo(
             string destFileName
         ) {
-            throw new NotImplementedException();
+            // copy all createOptions except Aliases (which are considered alternate filenames)
+            var createOptions = new MongoGridFSCreateOptions {
+                ChunkSize = chunkSize,
+                ContentType = contentType,
+                Metadata = metadata,
+                UploadDate = uploadDate
+            };
+            return CopyTo(destFileName, createOptions);
         }
 
         public MongoGridFSFileInfo CopyTo(
             string destFileName,
-            bool overwrite
+            MongoGridFSCreateOptions createOptions
         ) {
-            throw new NotImplementedException();
+            // note: we are aware that the data is making a round trip from and back to the server
+            // but we choose not to use a script to copy the data locally on the server
+            // because that would lock the database for too long
+            var stream = OpenRead();
+            return gridFS.Upload(stream, destFileName, createOptions);
         }
 
         public MongoGridFSStream Create() {
@@ -221,7 +232,7 @@ namespace MongoDB.Driver.GridFS {
         ) {
             if (rhs == null) { return false; }
             return
-                (this.aliases == rhs.aliases && (this.aliases == null || this.aliases.SequenceEqual(rhs.aliases))) &&
+                (this.aliases == null && rhs.aliases == null || this.aliases != null && rhs.aliases != null && this.aliases.SequenceEqual(rhs.aliases)) &&
                 this.chunkSize == rhs.chunkSize &&
                 this.contentType == rhs.contentType &&
                 this.id == rhs.id &&
@@ -254,7 +265,9 @@ namespace MongoDB.Driver.GridFS {
         public void MoveTo(
             string destFileName
         ) {
-            throw new NotImplementedException();
+            var query = Query.EQ("_id", id);
+            var update = Update.Set("filename", destFileName);
+            gridFS.Files.Update(query, update, gridFS.Settings.SafeMode);
         }
 
         public MongoGridFSStream Open(
@@ -317,21 +330,39 @@ namespace MongoDB.Driver.GridFS {
                 md5 = null;
                 uploadDate = default(DateTime);
             } else {
-                if (fileInfo.Contains("aliases")) {
+                var aliasesValue = fileInfo["aliases", null];
+                if (aliasesValue != null && !aliasesValue.IsBsonNull) {
                     var list = new List<string>();
-                    foreach (var alias in fileInfo["aliases"].AsBsonArray) {
+                    foreach (var alias in aliasesValue.AsBsonArray) {
                         list.Add(alias.AsString);
                     }
                     aliases = list.ToArray();
+                } else {
+                    aliases = null;
                 }
                 chunkSize = fileInfo["chunkSize"].ToInt32();
-                contentType = (string) fileInfo["contentType", null];
+                var contentTypeValue = fileInfo["contentType", null];
+                if (contentTypeValue != null && !contentTypeValue.IsBsonNull) {
+                    contentType = contentTypeValue.AsString;
+                } else {
+                    contentType = null;
+                }
                 exists = true;
                 id = fileInfo["_id"];
                 length = fileInfo["length"].ToInt32();
                 md5 = (string) fileInfo["md5", null];
-                metadata = (BsonDocument) fileInfo["metadata", null];
-                name = fileInfo["filename"].AsString;
+                var metadataValue = fileInfo["metadata", null];
+                if (metadataValue != null && !metadataValue.IsBsonNull) {
+                    metadata = metadataValue.AsBsonDocument;
+                } else {
+                    metadata = null;
+                }
+                var filenameValue = fileInfo["filename", null];
+                if (filenameValue != null && !filenameValue.IsBsonNull) {
+                    name = filenameValue.AsString;
+                } else {
+                    name = null;
+                }
                 uploadDate = fileInfo["uploadDate"].AsDateTime;
             }
             cached = true;

@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -528,9 +528,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
     public class DoubleSerializerTests {
         public class TestClass {
             public double D;
-            [BsonRepresentation(BsonType.Int32)]
+            [BsonRepresentation(BsonType.Int32, AllowTruncation=true)]
             public double I;
-            [BsonRepresentation(BsonType.Int64)]
+            [BsonRepresentation(BsonType.Int64, AllowTruncation = true)]
             public double L;
             [BsonRepresentation(BsonType.String)]
             public double S;

@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -30,10 +30,12 @@ using MongoDB.Driver.Builders;
 namespace MongoDB.DriverOnlineTests.Jira.CSharp130 {
     [TestFixture]
     public class CSharp130Tests {
+#pragma warning disable 649 // never assigned to
         private class C {
             public ObjectId Id;
             public IList<int> List;
         }
+#pragma warning restore
 
         private MongoServer server;
         private MongoDatabase database;

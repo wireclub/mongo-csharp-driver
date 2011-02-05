@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ namespace MongoDB.Driver {
         TailableCursor = 2,
         SlaveOk = 4,
         NoCursorTimeout = 16,
-        AwaitData = 132,
-        Exhaust = 64
+        AwaitData = 32,
+        Exhaust = 64,
+        Partial = 128
     }
 }

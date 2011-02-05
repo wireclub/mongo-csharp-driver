@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -197,28 +197,30 @@ namespace MongoDB.Driver.Internal {
 
         internal void Close() {
             lock (connectionLock) {
-                if (state != MongoConnectionState.Initial && state != MongoConnectionState.Closed) {
+                if (state != MongoConnectionState.Closed) {
                     Exception exception = null;
-                    // note: TcpClient.Close doesn't close the NetworkStream!?
-                    try {
-                        var networkStream = tcpClient.GetStream();
-                        if (networkStream != null) {
-                            networkStream.Close();
+                    if (tcpClient != null) {
+                        // note: TcpClient.Close doesn't close the NetworkStream!?
+                        try {
+                            var networkStream = tcpClient.GetStream();
+                            if (networkStream != null) {
+                                networkStream.Close();
+                            }
+                        } catch (Exception ex) {
+                            if (exception == null) { exception = ex; }
                         }
-                    } catch (Exception ex) {
-                        if (exception == null) { exception = ex; }
+                        try {
+                            tcpClient.Close();
+                        } catch (Exception ex) {
+                            if (exception == null) { exception = ex; }
+                        }
+                        try {
+                            ((IDisposable) tcpClient).Dispose(); // Dispose is not public!?
+                        } catch (Exception ex) {
+                            if (exception == null) { exception = ex; }
+                        }
+                        tcpClient = null;
                     }
-                    try {
-                        tcpClient.Close();
-                    } catch (Exception ex) {
-                        if (exception == null) { exception = ex; }
-                    }
-                    try {
-                        ((IDisposable) tcpClient).Dispose(); // Dispose is not public!?
-                    } catch (Exception ex) {
-                        if (exception == null) { exception = ex; }
-                    }
-                    tcpClient = null;
                     state = MongoConnectionState.Closed;
                     if (exception != null) { throw exception; }
                 }
@@ -339,13 +341,14 @@ namespace MongoDB.Driver.Internal {
             if (state == MongoConnectionState.Closed) { throw new InvalidOperationException("Connection is closed"); }
             lock (connectionLock) {
                 try {
-                    var buffer = new BsonBuffer();
-                    var networkStream = GetNetworkStream();
-                    networkStream.ReadTimeout = (int) server.Url.SocketTimeout.TotalMilliseconds;
-                    buffer.LoadFrom(networkStream);
-                    var reply = new MongoReplyMessage<TDocument>(server);
-                    reply.ReadFrom(buffer);
-                    return reply;
+                    using (var buffer = new BsonBuffer()) {
+                        var networkStream = GetNetworkStream();
+                        networkStream.ReadTimeout = (int) server.Settings.SocketTimeout.TotalMilliseconds;
+                        buffer.LoadFrom(networkStream);
+                        var reply = new MongoReplyMessage<TDocument>(server);
+                        reply.ReadFrom(buffer);
+                        return reply;
+                    }
                 } catch (Exception ex) {
                     HandleException(ex);
                     throw;
@@ -386,7 +389,7 @@ namespace MongoDB.Driver.Internal {
 
                 try {
                     var networkStream = GetNetworkStream();
-                    networkStream.WriteTimeout = (int) message.Server.Url.SocketTimeout.TotalMilliseconds;
+                    networkStream.WriteTimeout = (int) message.Server.Settings.SocketTimeout.TotalMilliseconds;
                     message.Buffer.WriteTo(networkStream);
                     messageCounter++;
                 } catch (Exception ex) {

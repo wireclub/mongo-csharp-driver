@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ namespace MongoDB.DriverOnlineTests.CommandResults {
             try {
                 var result = database.RunCommand("invalid");
             } catch (MongoCommandException ex) {
-                Assert.IsTrue(ex.Message.StartsWith("Command 'invalid' failed: no such cmd (response: "));
+                Assert.IsTrue(ex.Message.StartsWith("Command 'invalid' failed: no such cmd"));
             }
         }
     }

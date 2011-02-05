@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -190,6 +190,13 @@ namespace MongoDB.Driver.Builders {
             T value
         ) {
             return new UpdateBuilder().PushWrapped<T>(name, value);
+        }
+
+        public static IMongoUpdate Rename(
+            string oldElementName,
+            string newElementName
+        ) {
+            return new UpdateDocument("$rename", new BsonDocument(oldElementName, newElementName));
         }
 
         // similar to wrap but used when a full document replacement is wanted (<T> allows control over discriminator)
@@ -478,20 +485,6 @@ namespace MongoDB.Driver.Builders {
             return PushAll(name, (IEnumerable<BsonValue>) values);
         }
 
-        public UpdateBuilder PushWrapped<T>(
-            string name,
-            T value
-        ) {
-            var wrappedValue = BsonDocument.Wrap<T>(value);
-            BsonElement element;
-            if (document.TryGetElement("$push", out element)) {
-                element.Value.AsBsonDocument.Add(name, wrappedValue);
-            } else {
-                document.Add("$push", new BsonDocument(name, wrappedValue));
-            }
-            return this;
-        }
-
         public UpdateBuilder PushAllWrapped<T>(
             string name,
             IEnumerable<T> values
@@ -511,6 +504,20 @@ namespace MongoDB.Driver.Builders {
             params T[] values
         ) {
             return PushAllWrapped(name, (IEnumerable<T>) values);
+        }
+
+        public UpdateBuilder PushWrapped<T>(
+            string name,
+            T value
+        ) {
+            var wrappedValue = BsonDocument.Wrap<T>(value);
+            BsonElement element;
+            if (document.TryGetElement("$push", out element)) {
+                element.Value.AsBsonDocument.Add(name, wrappedValue);
+            } else {
+                document.Add("$push", new BsonDocument(name, wrappedValue));
+            }
+            return this;
         }
 
         public UpdateBuilder Set(

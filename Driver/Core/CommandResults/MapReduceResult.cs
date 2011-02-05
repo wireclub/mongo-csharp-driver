@@ -1,4 +1,4 @@
-﻿/* Copyright 2010 10gen Inc.
+﻿/* Copyright 2010-2011 10gen Inc.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ using System.Linq;
 using System.Text;
 
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 
 namespace MongoDB.Driver {
     public class MapReduceResult : CommandResult {
@@ -29,7 +30,7 @@ namespace MongoDB.Driver {
 
         #region public properties
         public string CollectionName {
-            get { return response["result"].AsString; }
+            get { return (string) response["result", null]; }
         }
 
         public TimeSpan Duration {
@@ -50,6 +51,12 @@ namespace MongoDB.Driver {
 
         public int InputCount {
             get { return response["counts"].AsBsonDocument["input"].ToInt32(); }
+        }
+        #endregion
+
+        #region public methods
+        public IEnumerable<TDocument> GetInlineResultsAs<TDocument>() {
+            return InlineResults.Select(document => BsonSerializer.Deserialize<TDocument>(document));
         }
         #endregion
     }
