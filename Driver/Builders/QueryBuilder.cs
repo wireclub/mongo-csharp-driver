@@ -310,7 +310,8 @@ namespace MongoDB.Driver.Builders {
 			BsonArray coords
 			)
 		{
-			return new QueryConditionList(name, "$near", coords);
+			throw new NotImplementedException("I don't know what happend");
+			//return new QueryConditionList(name, "$near", coords);
 		}
 
         public static QueryConditionList Near(
@@ -319,8 +320,8 @@ namespace MongoDB.Driver.Builders {
             double maxDistance
             )
         {
-            // TODO
-            return new QueryConditionList(name, "$near", coords);
+			throw new NotImplementedException("I don't know what happend");
+            //return new QueryConditionList(name, "$near", coords);
         }
 
         #endregion
