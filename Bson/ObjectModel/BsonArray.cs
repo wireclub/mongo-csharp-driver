@@ -22,89 +22,112 @@ using System.Text.RegularExpressions;
 
 using MongoDB.Bson.IO;
 
-namespace MongoDB.Bson {
+namespace MongoDB.Bson
+{
     [Serializable]
-    public class BsonArray : BsonValue, IComparable<BsonArray>, IEquatable<BsonArray>, IList<BsonValue> {
+    public class BsonArray : BsonValue, IComparable<BsonArray>, IEquatable<BsonArray>, IList<BsonValue>
+    {
         #region private fields
         private List<BsonValue> values = new List<BsonValue>();
         #endregion
 
         #region constructors
         public BsonArray()
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
         }
 
         public BsonArray(
             IEnumerable<bool> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<BsonValue> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<DateTime> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<double> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<int> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<long> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<object> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
+            AddRange(values);
+        }
+
+        public BsonArray(
+            IEnumerable<ObjectId> values
+            )
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
 
         public BsonArray(
             IEnumerable<string> values
         )
-            : base(BsonType.Array) {
+            : base(BsonType.Array)
+        {
             AddRange(values);
         }
         #endregion
 
         #region public properties
-        public int Count {
+        public int Count
+        {
             get { return values.Count; }
         }
 
-        public bool IsReadOnly {
+        public bool IsReadOnly
+        {
             get { return false; }
         }
 
-        public IEnumerable<object> RawValues {
+        public IEnumerable<object> RawValues
+        {
             get { return values.Select(v => v.RawValue); }
         }
 
-        public IEnumerable<BsonValue> Values {
+        public IEnumerable<BsonValue> Values
+        {
             get { return values; }
         }
         #endregion
@@ -112,7 +135,8 @@ namespace MongoDB.Bson {
         #region public indexers
         public BsonValue this[
             int index
-        ] {
+        ]
+        {
             get { return values[index]; }
             set { values[index] = value; }
         }
@@ -121,110 +145,152 @@ namespace MongoDB.Bson {
         #region public static methods
         public static BsonArray Create(
             IEnumerable<bool> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<BsonValue> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<DateTime> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<double> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<int> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<long> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
            IEnumerable<object> values
-       ) {
-            if (values != null) {
+       )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<ObjectId> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static BsonArray Create(
             IEnumerable<string> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 return new BsonArray(values);
-            } else {
+            }
+            else
+            {
                 return null;
             }
         }
 
         public new static BsonArray Create(
             object value
-        ) {
-            if (value != null) {
-                return (BsonArray) BsonTypeMapper.MapToBsonValue(value, BsonType.Array);
-            } else {
+        )
+        {
+            if (value != null)
+            {
+                return (BsonArray)BsonTypeMapper.MapToBsonValue(value, BsonType.Array);
+            }
+            else
+            {
                 return null;
             }
         }
 
         public static new BsonArray ReadFrom(
             BsonReader bsonReader
-        ) {
+        )
+        {
             var array = new BsonArray();
             bsonReader.ReadStartArray();
-            while (bsonReader.ReadBsonType() != BsonType.EndOfDocument) {
+            while (bsonReader.ReadBsonType() != BsonType.EndOfDocument)
+            {
                 var value = BsonValue.ReadFrom(bsonReader);
                 array.Add(value);
             }
@@ -236,8 +302,10 @@ namespace MongoDB.Bson {
         #region public methods
         public BsonArray Add(
             BsonValue value
-        ) {
-            if (value != null) {
+        )
+        {
+            if (value != null)
+            {
                 values.Add(value);
             }
             return this;
@@ -245,9 +313,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<bool> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonBoolean.Create(value));
                 }
             }
@@ -256,8 +327,10 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<BsonValue> values
-        ) {
-            if (values != null) {
+        )
+        {
+            if (values != null)
+            {
                 this.values.AddRange(values);
             }
             return this;
@@ -265,9 +338,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<DateTime> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonDateTime.Create(value));
                 }
             }
@@ -276,9 +352,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<double> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonDouble.Create(value));
                 }
             }
@@ -287,9 +366,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<int> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonInt32.Create(value));
                 }
             }
@@ -298,9 +380,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<long> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonInt64.Create(value));
                 }
             }
@@ -309,9 +394,12 @@ namespace MongoDB.Bson {
 
         public BsonArray AddRange(
             IEnumerable<object> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonValue.Create(value));
                 }
             }
@@ -319,33 +407,55 @@ namespace MongoDB.Bson {
         }
 
         public BsonArray AddRange(
+            IEnumerable<ObjectId> values
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    this.values.Add(BsonObjectId.Create(value));
+                }
+            }
+            return this;
+        }
+
+        public BsonArray AddRange(
             IEnumerable<string> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
+        )
+        {
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
                     this.values.Add(BsonString.Create(value));
                 }
             }
             return this;
         }
 
-    	public override BsonValue Clone() {
+        public override BsonValue Clone()
+        {
             BsonArray clone = new BsonArray();
-            foreach (var value in values) {
+            foreach (var value in values)
+            {
                 clone.Add(value.Clone());
             }
             return clone;
         }
 
-        public void Clear() {
+        public void Clear()
+        {
             values.Clear();
         }
 
         public int CompareTo(
             BsonArray other
-        ) {
+        )
+        {
             if (other == null) { return 1; }
-            for (int i = 0; i < values.Count && i < other.values.Count; i++) {
+            for (int i = 0; i < values.Count && i < other.values.Count; i++)
+            {
                 int r = values[i].CompareTo(other.values[i]);
                 if (r != 0) { return r; }
             }
@@ -354,10 +464,12 @@ namespace MongoDB.Bson {
 
         public override int CompareTo(
             BsonValue other
-        ) {
+        )
+        {
             if (other == null) { return 1; }
             var otherArray = other as BsonArray;
-            if (otherArray != null) {
+            if (otherArray != null)
+            {
                 return CompareTo(otherArray);
             }
             return CompareTypeTo(other);
@@ -365,15 +477,18 @@ namespace MongoDB.Bson {
 
         public bool Contains(
             BsonValue value
-        ) {
+        )
+        {
             return values.Contains(value);
         }
 
         public void CopyTo(
             BsonValue[] array,
             int arrayIndex
-        ) {
-            for (int i = 0, j = arrayIndex; i < values.Count; i++, j++) {
+        )
+        {
+            for (int i = 0, j = arrayIndex; i < values.Count; i++, j++)
+            {
                 array[j] = values[i];
             }
         }
@@ -381,15 +496,19 @@ namespace MongoDB.Bson {
         public void CopyTo(
             object[] array,
             int arrayIndex
-        ) {
-            for (int i = 0, j = arrayIndex; i < values.Count; i++, j++) {
+        )
+        {
+            for (int i = 0, j = arrayIndex; i < values.Count; i++, j++)
+            {
                 array[j] = values[i].RawValue;
             }
         }
 
-        public override BsonValue DeepClone() {
+        public override BsonValue DeepClone()
+        {
             BsonArray clone = new BsonArray();
-            foreach (var value in values) {
+            foreach (var value in values)
+            {
                 clone.Add(value.DeepClone());
             }
             return clone;
@@ -397,26 +516,31 @@ namespace MongoDB.Bson {
 
         public bool Equals(
             BsonArray rhs
-        ) {
+        )
+        {
             if (rhs == null) { return false; }
             return object.ReferenceEquals(this, rhs) || this.values.SequenceEqual(rhs.values);
         }
 
         public override bool Equals(
             object obj
-        ) {
+        )
+        {
             return Equals(obj as BsonArray); // works even if obj is null
         }
 
-        public IEnumerator<BsonValue> GetEnumerator() {
+        public IEnumerator<BsonValue> GetEnumerator()
+        {
             return values.GetEnumerator();
         }
 
-        public override int GetHashCode() {
+        public override int GetHashCode()
+        {
             // see Effective Java by Joshua Bloch
             int hash = 17;
             hash = 37 * hash + bsonType.GetHashCode();
-            foreach (var value in values) {
+            foreach (var value in values)
+            {
                 hash = 37 * hash + value.GetHashCode();
             }
             return hash;
@@ -424,14 +548,16 @@ namespace MongoDB.Bson {
 
         public int IndexOf(
             BsonValue value
-        ) {
+        )
+        {
             return values.IndexOf(value);
         }
 
         public int IndexOf(
             BsonValue value,
             int index
-        ) {
+        )
+        {
             return values.IndexOf(value, index);
         }
 
@@ -439,37 +565,44 @@ namespace MongoDB.Bson {
             BsonValue value,
             int index,
             int count
-        ) {
+        )
+        {
             return values.IndexOf(value, index, count);
         }
 
         public void Insert(
             int index,
             BsonValue value
-        ) {
+        )
+        {
             values.Insert(index, value);
         }
 
         public bool Remove(
             BsonValue value
-        ) {
+        )
+        {
             return values.Remove(value);
         }
 
         public void RemoveAt(
             int index
-        ) {
+        )
+        {
             values.RemoveAt(index);
         }
 
-        public BsonValue[] ToArray() {
+        public BsonValue[] ToArray()
+        {
             return values.ToArray();
         }
 
-        public override string ToString() {
+        public override string ToString()
+        {
             StringBuilder sb = new StringBuilder();
             sb.Append("[");
-            for (int i = 0; i < values.Count; i++) {
+            for (int i = 0; i < values.Count; i++)
+            {
                 if (i > 0) { sb.Append(", "); }
                 sb.Append(values[i].ToString());
             }
@@ -479,9 +612,11 @@ namespace MongoDB.Bson {
 
         public new void WriteTo(
             BsonWriter bsonWriter
-        ) {
+        )
+        {
             bsonWriter.WriteStartArray();
-            for (int i = 0; i < values.Count; i++) {
+            for (int i = 0; i < values.Count; i++)
+            {
                 values[i].WriteTo(bsonWriter);
             }
             bsonWriter.WriteEndArray();
@@ -489,7 +624,8 @@ namespace MongoDB.Bson {
         #endregion
 
         #region private methods
-        IEnumerator IEnumerable.GetEnumerator() {
+        IEnumerator IEnumerable.GetEnumerator()
+        {
             return GetEnumerator();
         }
         #endregion
@@ -498,7 +634,8 @@ namespace MongoDB.Bson {
         // our version of Add returns BsonArray
         void ICollection<BsonValue>.Add(
             BsonValue value
-        ) {
+        )
+        {
             Add(value);
         }
         #endregion
