@@ -102,25 +102,6 @@ namespace MongoDB.Driver.Builders {
             return new QueryComplete(new BsonDocument(name, value));
         }
 
-		public static string ElementName<TModel, TProperty>(Expression<Func<TModel, TProperty>> expression)
-		{
-			var name = expression.Body.ToString().Substring(expression.Parameters[0].Name.Length + 1);
-			foreach (var attribute in ((MemberExpression)expression.Body).Member.GetCustomAttributes(false))
-				if (attribute is BsonElementAttribute)
-					name = ((BsonElementAttribute)attribute).ElementName;
-			return name == "Id" ? "_id" : name;
-		}
-
-		public static QueryComplete EQ<TModel,TProperty>(
-			Expression<Func<TModel, TProperty>> expression,
-			BsonValue value)
-		{
-			if (expression.Body.NodeType != ExpressionType.MemberAccess)
-				throw new InvalidOperationException("Expression must be a member access");
-
-			return EQ(ElementName(expression), value);
-		}
-
     	public static QueryConditionList Exists(
             string name,
             bool value
@@ -303,24 +284,6 @@ namespace MongoDB.Driver.Builders {
             object query
         ) {
             return QueryWrapper.Create(query);
-        }
-
-		public static QueryConditionList Near(
-			string name,
-			BsonArray coords
-			)
-		{
-			return new QueryConditionList(name, "$near", coords);
-		}
-
-        public static QueryConditionList Near(
-            string name,
-            BsonArray coords,
-            double maxDistance
-            )
-        {
-            // TODO
-            return new QueryConditionList(name, "$near", coords);
         }
 
         #endregion
