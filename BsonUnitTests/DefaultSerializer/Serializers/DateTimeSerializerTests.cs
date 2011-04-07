@@ -21,10 +21,10 @@ using System.Xml;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Attributes;
 
-namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializationOptions {
+namespace MongoDB.BsonUnitTests.Serialization.Conventions.DateTimeSerializationOptions {
     [TestFixture]
     public class LocalTests {
         public class C {
@@ -40,9 +40,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -56,9 +54,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -72,9 +68,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -88,9 +82,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -104,9 +96,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -120,9 +110,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -136,7 +124,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : { '$date' : 0 }, 'D' : { '$date' : 0 } }".Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('1970-01-01T00:00:00Z'), 'D' : ISODate('1970-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -150,9 +138,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT.ToUniversalTime() - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -167,9 +155,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -193,7 +181,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999Z', 'D' : '9999-12-31' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999', 'D' : '9999-12-31' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -207,7 +195,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999Z', 'D' : '9999-12-31' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999', 'D' : '9999-12-31' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -221,7 +209,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999Z', 'D' : '9999-12-31' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '9999-12-31T23:59:59.9999999', 'D' : '9999-12-31' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -235,7 +223,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '0001-01-01T00:00:00Z', 'D' : '0001-01-01' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '0001-01-01T00:00:00', 'D' : '0001-01-01' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -249,7 +237,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '0001-01-01T00:00:00Z', 'D' : '0001-01-01' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '0001-01-01T00:00:00', 'D' : '0001-01-01' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -263,7 +251,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : '0001-01-01T00:00:00Z', 'D' : '0001-01-01' }".Replace("'", "\"");
+            var expected = "{ 'DT' : '0001-01-01T00:00:00', 'D' : '0001-01-01' }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -334,9 +322,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -350,9 +336,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -366,9 +350,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -382,9 +364,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -398,9 +378,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -414,9 +392,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -430,7 +406,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : { '$date' : 0 }, 'D' : { '$date' : 0 } }".Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('1970-01-01T00:00:00Z'), 'D' : ISODate('1970-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -444,9 +420,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT.ToUniversalTime() - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -460,9 +436,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -486,9 +462,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -502,9 +476,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -518,9 +490,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MaxValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MaxValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('9999-12-31T23:59:59.999Z'), 'D' : ISODate('9999-12-31T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -534,9 +504,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -550,9 +518,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -566,9 +532,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (DateTime.MinValue - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (DateTime.MinValue.Date - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('0001-01-01T00:00:00Z'), 'D' : ISODate('0001-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -582,7 +546,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var expected = "{ 'DT' : { '$date' : 0 }, 'D' : { '$date' : 0 } }".Replace("'", "\"");
+            var expected = "{ 'DT' : ISODate('1970-01-01T00:00:00Z'), 'D' : ISODate('1970-01-01T00:00:00Z') }".Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -596,9 +560,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT.ToUniversalTime() - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -613,9 +577,9 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Serializers.DateTimeSerializat
             c.D = c.DT.Date;
 
             var json = c.ToJson();
-            var rep1 = ((long) (c.DT - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var rep2 = ((long) (c.D - BsonConstants.UnixEpoch).TotalMilliseconds).ToString();
-            var expected = "{ 'DT' : { '$date' : #1 }, 'D' : { '$date' : #2 } }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
+            var rep1 = c.DT.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var rep2 = c.D.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
+            var expected = "{ 'DT' : ISODate('#1'), 'D' : ISODate('#2') }".Replace("#1", rep1).Replace("#2", rep2).Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();

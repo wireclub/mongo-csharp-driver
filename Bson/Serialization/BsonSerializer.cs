@@ -19,80 +19,127 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-// don't add using statement for MongoDB.Bson.DefaultSerializer to minimize dependencies on DefaultSerializer
+// don't add using statement for MongoDB.Bson.Serialization.Serializers to minimize dependencies on DefaultSerializer
 using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization.IdGenerators;
 
 namespace MongoDB.Bson.Serialization {
+    /// <summary>
+    /// A static class that represents the BSON serialization functionality.
+    /// </summary>
     public static class BsonSerializer {
         #region private static fields
-        private static object staticLock = new object();
+        private static object configLock = new object();
         private static Dictionary<Type, IIdGenerator> idGenerators = new Dictionary<Type, IIdGenerator>();
         private static Dictionary<Type, IBsonSerializer> serializers = new Dictionary<Type, IBsonSerializer>();
         private static Dictionary<Type, Type> genericSerializerDefinitions = new Dictionary<Type, Type>();
-        private static IBsonSerializationProvider serializationProvider = null;
+        private static List<IBsonSerializationProvider> serializationProviders = new List<IBsonSerializationProvider>();
         #endregion
 
         #region static constructor
         static BsonSerializer() {
+            RegisterDefaultSerializationProvider();
             RegisterIdGenerators();
         }
         #endregion
 
-        #region public static properties
-        public static IBsonSerializationProvider SerializationProvider {
-            get { return serializationProvider; }
-            set {
-                if (serializationProvider != null) {
-                    throw new BsonSerializationException("SerializationProvider has already been set");
-                }
-                serializationProvider = value;
-            }
+        #region internal static properties
+        internal static object ConfigLock {
+            get { return configLock; }
         }
         #endregion
 
         #region public static methods
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a BsonDocument.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="document">The BsonDocument.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             BsonDocument document
         ) {
-            return (T) Deserialize(document, typeof(T));
+            return (TNominalType) Deserialize(document, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a JsonBuffer.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="buffer">The JsonBuffer.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             JsonBuffer buffer
         ) {
-            return (T) Deserialize(buffer, typeof(T));
+            return (TNominalType) Deserialize(buffer, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a BsonReader.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="bsonReader">The BsonReader.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             BsonReader bsonReader
         ) {
-            return (T) Deserialize(bsonReader, typeof(T));
+            return (TNominalType) Deserialize(bsonReader, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a BSON byte array.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="bytes">The BSON byte array.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             byte[] bytes
         ) {
-            return (T) Deserialize(bytes, typeof(T));
+            return (TNominalType) Deserialize(bytes, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a BSON Stream.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="stream">The BSON Stream.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             Stream stream
         ) {
-            return (T) Deserialize(stream, typeof(T));
+            return (TNominalType) Deserialize(stream, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a JSON string.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="json">The JSON string.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             string json
         ) {
-            return (T) Deserialize(json, typeof(T));
+            return (TNominalType) Deserialize(json, typeof(TNominalType));
         }
 
-        public static T Deserialize<T>(
+        /// <summary>
+        /// Deserializes an object from a JSON TextReader.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="textReader">The JSON TextReader.</param>
+        /// <returns>A TNominalType.</returns>
+        public static TNominalType Deserialize<TNominalType>(
             TextReader textReader
         ) {
-            return (T) Deserialize(textReader, typeof(T));
+            return (TNominalType) Deserialize(textReader, typeof(TNominalType));
         }
 
+        /// <summary>
+        /// Deserializes an object from a BsonDocument.
+        /// </summary>
+        /// <param name="document">The BsonDocument.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>A TNominalType.</returns>
         public static object Deserialize(
             BsonDocument document,
             Type nominalType
@@ -102,6 +149,12 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Deserializes an object from a JsonBuffer.
+        /// </summary>
+        /// <param name="buffer">The JsonBuffer.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             JsonBuffer buffer,
             Type nominalType
@@ -111,6 +164,12 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Deserializes an object from a BsonReader.
+        /// </summary>
+        /// <param name="bsonReader">The BsonReader.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             BsonReader bsonReader,
             Type nominalType
@@ -123,6 +182,12 @@ namespace MongoDB.Bson.Serialization {
             return serializer.Deserialize(bsonReader, nominalType, null);
         }
 
+        /// <summary>
+        /// Deserializes an object from a BSON byte array.
+        /// </summary>
+        /// <param name="bytes">The BSON byte array.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             byte[] bytes,
             Type nominalType
@@ -132,6 +197,12 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Deserializes an object from a BSON Stream.
+        /// </summary>
+        /// <param name="stream">The BSON Stream.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             Stream stream,
             Type nominalType
@@ -141,6 +212,12 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Deserializes an object from a JSON string.
+        /// </summary>
+        /// <param name="json">The JSON string.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             string json,
             Type nominalType
@@ -150,6 +227,12 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Deserializes an object from a JSON TextReader.
+        /// </summary>
+        /// <param name="textReader">The JSON TextReader.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <returns>An object.</returns>
         public static object Deserialize(
             TextReader textReader,
             Type nominalType
@@ -159,20 +242,30 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Looks up a generic serializer definition.
+        /// </summary>
+        /// <param name="genericTypeDefinition">The generic type.</param>
+        /// <returns>A generic serializer definition.</returns>
         public static Type LookupGenericSerializerDefinition(
             Type genericTypeDefinition
         ) {
-            lock (staticLock) {
+            lock (configLock) {
                 Type genericSerializerDefinition;
                 genericSerializerDefinitions.TryGetValue(genericTypeDefinition, out genericSerializerDefinition);
                 return genericSerializerDefinition;
             }
         }
 
+        /// <summary>
+        /// Looks up an IdGenerator.
+        /// </summary>
+        /// <param name="type">The Id type.</param>
+        /// <returns>An IdGenerator for the Id type.</returns>
         public static IIdGenerator LookupIdGenerator(
             Type type
         ) {
-            lock (staticLock) {
+            lock (configLock) {
                 IIdGenerator idGenerator;
                 if (!idGenerators.TryGetValue(type, out idGenerator)) {
                     if (type.IsValueType) {
@@ -194,21 +287,20 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Looks up a serializer for a Type.
+        /// </summary>
+        /// <param name="type">The Type.</param>
+        /// <returns>A serializer for the Type.</returns>
         public static IBsonSerializer LookupSerializer(
             Type type
         ) {
-            lock (staticLock) {
-                // initialize the serialization provider before calling serializers.TryGetValue
-                // so the serialization provider gets a chance to register the serializers first
-                if (serializationProvider == null) {
-                    InitializeSerializationProvider();
-                }
-
+            lock (configLock) {
                 IBsonSerializer serializer;
                 if (!serializers.TryGetValue(type, out serializer)) {
                     // special case for IBsonSerializable
                     if (serializer == null && typeof(IBsonSerializable).IsAssignableFrom(type)) {
-                        serializer = DefaultSerializer.BsonIBsonSerializableSerializer.Instance;
+                        serializer = Serializers.BsonIBsonSerializableSerializer.Instance;
                     }
 
                     if (serializer == null && type.IsGenericType) {
@@ -221,7 +313,12 @@ namespace MongoDB.Bson.Serialization {
                     }
 
                     if (serializer == null) {
-                        serializer = serializationProvider.GetSerializer(type);
+                        foreach (var serializationProvider in serializationProviders) {
+                            serializer = serializationProvider.GetSerializer(type);
+                            if (serializer != null) {
+                                break;
+                            }
+                        }
                     }
 
                     if (serializer == null) {
@@ -236,48 +333,95 @@ namespace MongoDB.Bson.Serialization {
             }
         }
 
+        /// <summary>
+        /// Registers a generic serializer definition for a generic type.
+        /// </summary>
+        /// <param name="genericTypeDefinition">The generic type.</param>
+        /// <param name="genericSerializerDefinition">The generic serializer definition.</param>
         public static void RegisterGenericSerializerDefinition(
             Type genericTypeDefinition,
             Type genericSerializerDefinition
         ) {
-            lock (staticLock) {
+            lock (configLock) {
                 genericSerializerDefinitions[genericTypeDefinition] = genericSerializerDefinition;
             }
         }
 
+        /// <summary>
+        /// Registers an IdGenerator for an Id Type.
+        /// </summary>
+        /// <param name="type">The Id Type.</param>
+        /// <param name="idGenerator">The IdGenerator for the Id Type.</param>
         public static void RegisterIdGenerator(
             Type type,
             IIdGenerator idGenerator
         ) {
-            lock (staticLock) {
+            lock (configLock) {
                 idGenerators[type] = idGenerator;
             }
         }
 
+        /// <summary>
+        /// Registers a serialization provider.
+        /// </summary>
+        /// <param name="provider">The serialization provider.</param>
+        public static void RegisterSerializationProvider(
+            IBsonSerializationProvider provider
+        ) {
+            lock (configLock) {
+                // add new provider to the front of the list
+                serializationProviders.Insert(0, provider);
+            }
+        }
+
+        /// <summary>
+        /// Registers a serializer for a type.
+        /// </summary>
+        /// <param name="type">The type.</param>
+        /// <param name="serializer">The serializer.</param>
         public static void RegisterSerializer(
             Type type,
             IBsonSerializer serializer
         ) {
-            lock (staticLock) {
+            lock (configLock) {
                 serializers[type] = serializer;
             }
         }
 
-        public static void Serialize<T>(
+        /// <summary>
+        /// Serializes an object to a BsonWriter.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="bsonWriter">The BsonWriter.</param>
+        /// <param name="value">The object.</param>
+        public static void Serialize<TNominalType>(
             BsonWriter bsonWriter,
-            T value
+            TNominalType value
         ) {
             Serialize(bsonWriter, value, null);
         }
 
-        public static void Serialize<T>(
+        /// <summary>
+        /// Serializes an object to a BsonWriter.
+        /// </summary>
+        /// <typeparam name="TNominalType">The nominal type of the object.</typeparam>
+        /// <param name="bsonWriter">The BsonWriter.</param>
+        /// <param name="value">The object.</param>
+        /// <param name="options">The serialization options.</param>
+        public static void Serialize<TNominalType>(
             BsonWriter bsonWriter,
-            T value,
+            TNominalType value,
             IBsonSerializationOptions options
         ) {
-            Serialize(bsonWriter, typeof(T), value, options);
+            Serialize(bsonWriter, typeof(TNominalType), value, options);
         }
 
+        /// <summary>
+        /// Serializes an object to a BsonWriter.
+        /// </summary>
+        /// <param name="bsonWriter">The BsonWriter.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="value">The object.</param>
         public static void Serialize(
             BsonWriter bsonWriter,
             Type nominalType,
@@ -286,6 +430,13 @@ namespace MongoDB.Bson.Serialization {
             Serialize(bsonWriter, nominalType, value, null);
         }
 
+        /// <summary>
+        /// Serializes an object to a BsonWriter.
+        /// </summary>
+        /// <param name="bsonWriter">The BsonWriter.</param>
+        /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="value">The object.</param>
+        /// <param name="options">The serialization options.</param>
         public static void Serialize(
             BsonWriter bsonWriter,
             Type nominalType,
@@ -302,41 +453,11 @@ namespace MongoDB.Bson.Serialization {
             var serializer = LookupSerializer(actualType);
             serializer.Serialize(bsonWriter, nominalType, value, options);
         }
-
-        public static void UnregisterGenericSerializerDefinition(
-            Type genericTypeDefinition
-        ) {
-            lock (staticLock) {
-                genericSerializerDefinitions.Remove(genericTypeDefinition);
-            }
-        }
-
-        public static void UnregisterIdGenerator(
-            Type type
-        ) {
-            lock (staticLock) {
-                idGenerators.Remove(type);
-            }
-        }
-
-        public static void UnregisterSerializer(
-            Type type
-        ) {
-            lock (staticLock) {
-                serializers.Remove(type);
-            }
-        }
         #endregion
 
         #region private static methods
-        private static void InitializeSerializationProvider() {
-            lock (staticLock) {
-                // repeat the test for null but this time while holding the staticLock
-                if (serializationProvider == null) {
-                    DefaultSerializer.BsonDefaultSerializer.Initialize();
-                    serializationProvider = DefaultSerializer.BsonDefaultSerializer.Instance;
-                }
-            }
+        private static void RegisterDefaultSerializationProvider() {
+            RegisterSerializationProvider(BsonDefaultSerializer.Instance);
         }
 
         private static void RegisterIdGenerators() {

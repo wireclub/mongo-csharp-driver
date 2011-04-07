@@ -21,11 +21,11 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Attributes;
 
-namespace MongoDB.BsonUnitTests.DefaultSerializer {
+namespace MongoDB.BsonUnitTests.Serialization {
     [TestFixture]
     public class NullableTypeSerializerTests {
         private class C {
@@ -38,6 +38,8 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
             public int? Int32 { get; set; }
             public long? Int64 { get; set; }
             public ObjectId? ObjectId { get; set; }
+            [BsonRepresentation(BsonType.String)]
+            public ConsoleColor? Enum { get; set; }
             // public Struct? Struct { get; set; }
         }
 
@@ -54,7 +56,8 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
             "'Guid' : null, " +
             "'Int32' : null, " +
             "'Int64' : null, " +
-            "'ObjectId' : null" +
+            "'ObjectId' : null, " +
+            "'Enum' : null" +
             // "'Struct' : null" +
             " }";
 
@@ -86,7 +89,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
         public void TestDateTime() {
             C c = new C { DateTime = BsonConstants.UnixEpoch };
             var json = c.ToJson();
-            var expected = template.Replace("'DateTime' : null", "'DateTime' : { '$date' : 0 }").Replace("'", "\"");
+            var expected = template.Replace("'DateTime' : null", "'DateTime' : ISODate('1970-01-01T00:00:00Z')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -98,7 +101,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
         public void TestDateOnly() {
             C c = new C { DateOnly = BsonConstants.UnixEpoch };
             var json = c.ToJson();
-            var expected = template.Replace("'DateOnly' : null", "'DateOnly' : { '$date' : 0 }").Replace("'", "\"");
+            var expected = template.Replace("'DateOnly' : null", "'DateOnly' : ISODate('1970-01-01T00:00:00Z')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -119,10 +122,22 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
         }
 
         [Test]
+        public void TestEnum() {
+            var c = new C { Enum = ConsoleColor.Red };
+            var json = c.ToJson();
+            var expected = template.Replace("'Enum' : null", "'Enum' : 'Red'").Replace("'", "\"");
+            Assert.AreEqual(expected, json);
+
+            var bson = c.ToBson();
+            var rehydrated = BsonSerializer.Deserialize<C>(bson);
+            Assert.IsTrue(bson.SequenceEqual(rehydrated.ToBson()));
+        }
+
+        [Test]
         public void TestGuid() {
             C c = new C { Guid = Guid.Empty };
             var json = c.ToJson();
-            var expected = template.Replace("'Guid' : null", "'Guid' : { '$binary' : 'AAAAAAAAAAAAAAAAAAAAAA==', '$type' : '03' }").Replace("'", "\"");
+            var expected = template.Replace("'Guid' : null", "'Guid' : BinData(3, 'AAAAAAAAAAAAAAAAAAAAAA==')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -146,7 +161,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
         public void TestInt64() {
             C c = new C { Int64 = 2 };
             var json = c.ToJson();
-            var expected = template.Replace("'Int64' : null", "'Int64' : 2").Replace("'", "\"");
+            var expected = template.Replace("'Int64' : null", "'Int64' : NumberLong(2)").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();
@@ -158,7 +173,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer {
         public void TestObjectId() {
             C c = new C { ObjectId = ObjectId.Empty };
             var json = c.ToJson();
-            var expected = template.Replace("'ObjectId' : null", "'ObjectId' : { '$oid' : '000000000000000000000000' }").Replace("'", "\"");
+            var expected = template.Replace("'ObjectId' : null", "'ObjectId' : ObjectId('000000000000000000000000')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = c.ToBson();

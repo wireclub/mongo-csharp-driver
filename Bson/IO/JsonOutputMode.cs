@@ -19,9 +19,25 @@ using System.Linq;
 using System.Text;
 
 namespace MongoDB.Bson.IO {
+    /// <summary>
+    /// Represents the output mode of a JsonWriter.
+    /// </summary>
     public enum JsonOutputMode {
+        /// <summary>
+        /// Output strict JSON.
+        /// </summary>
         Strict,
+        /// <summary>
+        /// Use JavaScript data types for some values.
+        /// </summary>
         JavaScript,
-        TenGen
+        /// <summary>
+        /// Use JavaScript and 10gen data types for some values.
+        /// </summary>
+        TenGen,
+        /// <summary>
+        /// Use a format that can be pasted in to the MongoDB shell.
+        /// </summary>
+        Shell
     }
 }

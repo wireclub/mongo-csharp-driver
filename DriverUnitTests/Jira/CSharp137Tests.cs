@@ -22,14 +22,12 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 
 namespace MongoDB.DriverUnitTests.Jira.CSharp137 {
     [TestFixture]
-    class CSharp137Tests {
-
+    public class CSharp137Tests {
         [Test]
         public void TestAndInNotIn() {
             var query = Query.And(

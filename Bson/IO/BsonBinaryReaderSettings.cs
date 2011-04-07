@@ -19,6 +19,9 @@ using System.Linq;
 using System.Text;
 
 namespace MongoDB.Bson.IO {
+    /// <summary>
+    /// Represents settings for a BsonBinaryReader.
+    /// </summary>
     public class BsonBinaryReaderSettings {
         #region private static fields
         private static BsonBinaryReaderSettings defaults = new BsonBinaryReaderSettings();
@@ -28,33 +31,105 @@ namespace MongoDB.Bson.IO {
         private bool closeInput = false;
         private bool fixOldBinarySubTypeOnInput = true;
         private int maxDocumentSize = BsonDefaults.MaxDocumentSize;
+        private bool isFrozen;
         #endregion
 
         #region constructors
+        /// <summary>
+        /// Initializes a new instance of the BsonBinaryReaderSettings class.
+        /// </summary>
         public BsonBinaryReaderSettings() {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonBinaryReaderSettings class.
+        /// </summary>
+        /// <param name="closeInput">Whether to close the input stream when the reader is closed.</param>
+        /// <param name="fixOldBinarySubTypeOnInput">Whether to fix occurrences of the old binary subtype on input.</param>
+        /// <param name="maxDocumentSize">The max document size.</param>
+        public BsonBinaryReaderSettings(
+            bool closeInput,
+            bool fixOldBinarySubTypeOnInput,
+            int maxDocumentSize
+        ) {
+            this.closeInput = closeInput;
+            this.fixOldBinarySubTypeOnInput = fixOldBinarySubTypeOnInput;
+            this.maxDocumentSize = maxDocumentSize;
         }
         #endregion
 
         #region public static properties
+        /// <summary>
+        /// Gets or sets the default settings for a BsonBinaryReader.
+        /// </summary>
         public static BsonBinaryReaderSettings Defaults {
             get { return defaults; }
+            set { defaults = value; }
         }
         #endregion
 
         #region public properties
+        /// <summary>
+        /// Gets or sets whether to close the input stream when the reader is closed.
+        /// </summary>
         public bool CloseInput {
             get { return closeInput; }
-            set { closeInput = value; }
+            set {
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                closeInput = value;
+            }
         }
 
+        /// <summary>
+        /// Gets or sets whether to fix occurrences of the old binary subtype on input. 
+        /// </summary>
         public bool FixOldBinarySubTypeOnInput {
             get { return fixOldBinarySubTypeOnInput; }
-            set { fixOldBinarySubTypeOnInput = value; }
+            set {
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                fixOldBinarySubTypeOnInput = value;
+            }
         }
 
+        /// <summary>
+        /// Gets whether the settings are frozen.
+        /// </summary>
+        public bool IsFrozen {
+            get { return isFrozen; }
+        }
+
+        /// <summary>
+        /// Gets or sets the max document size.
+        /// </summary>
         public int MaxDocumentSize {
             get { return maxDocumentSize; }
-            set { maxDocumentSize = value; }
+            set {
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                maxDocumentSize = value;
+            }
+        }
+        #endregion
+
+        #region public methods
+        /// <summary>
+        /// Creates a clone of the settings.
+        /// </summary>
+        /// <returns>A clone of the settings.</returns>
+        public BsonBinaryReaderSettings Clone() {
+            return new BsonBinaryReaderSettings(
+                closeInput,
+                fixOldBinarySubTypeOnInput,
+                maxDocumentSize
+            );
+        }
+
+        /// <summary>
+        /// Freezes the settings.
+        /// </summary>
+        /// <returns>The settings.</returns>
+        public BsonBinaryReaderSettings Freeze() {
+            isFrozen = true;
+            return this;
         }
         #endregion
     }

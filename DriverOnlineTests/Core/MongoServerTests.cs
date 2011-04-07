@@ -39,6 +39,16 @@ namespace MongoDB.DriverOnlineTests {
         // TODO: more tests for MongoServer
 
         [Test]
+        public void TestDatabaseExists() {
+            var databaseName = "onlinetests-temp";
+            var database = server[databaseName];
+            database.Drop();
+            Assert.IsFalse(server.DatabaseExists(databaseName));
+            database["test"].Insert(new BsonDocument("x", 1));
+            Assert.IsTrue(server.DatabaseExists(databaseName));
+        }
+
+        [Test]
         public void TestDropDatabase() {
             var databaseName = "onlinetests-temp";
             var database = server[databaseName];
@@ -50,6 +60,11 @@ namespace MongoDB.DriverOnlineTests {
             var result = server.DropDatabase(databaseName);
             databaseNames = server.GetDatabaseNames();
             Assert.IsFalse(databaseNames.Contains(databaseName));
+        }
+
+        [Test]
+        public void TestPing() {
+            server.Ping();
         }
 
         [Test]

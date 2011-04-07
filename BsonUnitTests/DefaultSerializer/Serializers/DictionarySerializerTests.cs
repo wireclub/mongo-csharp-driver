@@ -21,10 +21,10 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Attributes;
 
-namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
+namespace MongoDB.BsonUnitTests.Serialization.DictionarySerializers {
     [BsonDiscriminator("DictionarySerializers.C")] // "C" is an ambiguous discriminator when nominalType is System.Object
     public class C {
         public string P { get; set; }
@@ -397,7 +397,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
         [Test]
         public void TestMixedPrimitiveTypes() {
             var dateTime = DateTime.SpecifyKind(new DateTime(2010, 1, 1, 11, 22, 33), DateTimeKind.Utc);
-            var millis = (long) ((dateTime - BsonConstants.UnixEpoch).TotalMilliseconds);
+            var isoDate = dateTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
             var guid = Guid.Empty;
             var objectId = ObjectId.Empty;
             var ht = new Hashtable {
@@ -417,12 +417,12 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
             var json = obj.ToJson();
             var reps = new Hashtable {
                 { "A", "true" }, 
-                { "B", "{ '$date' : #ms }".Replace("#ms", millis.ToString()) },
+                { "B", "ISODate('#')".Replace("#", isoDate) },
                 { "C", "1.5" }, 
                 { "D", "1" }, 
-                { "E", "2" },
-                { "F", "{ '$binary' : 'AAAAAAAAAAAAAAAAAAAAAA==', '$type' : '03' }" }, 
-                { "G", "{ '$oid' : '000000000000000000000000' }" }, 
+                { "E", "NumberLong(2)" },
+                { "F", "BinData(3, 'AAAAAAAAAAAAAAAAAAAAAA==')" }, 
+                { "G", "ObjectId('000000000000000000000000')" }, 
                 { "H", "'x'" }
             };
             var htRep = GetDocumentRepresentationInKeyOrder(ht, reps);
@@ -450,7 +450,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
         [Test]
         public void TestMixedPrimitiveTypesWithIntKeys() {
             var dateTime = DateTime.SpecifyKind(new DateTime(2010, 1, 1, 11, 22, 33), DateTimeKind.Utc);
-            var millis = (long) ((dateTime - BsonConstants.UnixEpoch).TotalMilliseconds);
+            var isoDate = dateTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
             var guid = Guid.Empty;
             var objectId = ObjectId.Empty;
             var ht = new Hashtable {
@@ -470,12 +470,12 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
             var json = obj.ToJson();
             var reps = new Hashtable {
                 { 1, "[1, true]" }, 
-                { 2, "[2, { '$date' : #ms }]".Replace("#ms", millis.ToString()) },
+                { 2, "[2, ISODate('#')]".Replace("#", isoDate) },
                 { 3, "[3, 1.5]" }, 
                 { 4, "[4, 1]" }, 
-                { 5, "[5, 2]" },
-                { 6, "[6, { '$binary' : 'AAAAAAAAAAAAAAAAAAAAAA==', '$type' : '03' }]" }, 
-                { 7, "[7, { '$oid' : '000000000000000000000000' }]" }, 
+                { 5, "[5, NumberLong(2)]" },
+                { 6, "[6, BinData(3, 'AAAAAAAAAAAAAAAAAAAAAA==')]" }, 
+                { 7, "[7, ObjectId('000000000000000000000000')]" }, 
                 { 8, "[8, 'x']" }
             };
             var htRep = GetArrayRepresentationInKeyOrder(ht, reps);
@@ -504,7 +504,7 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
         public void TestMixedPrimitiveTypesWithMixedKeys() {
             // note: no SortedList in this test because you can't sort a set of keys that have mixed types
             var dateTime = DateTime.SpecifyKind(new DateTime(2010, 1, 1, 11, 22, 33), DateTimeKind.Utc);
-            var millis = (long) ((dateTime - BsonConstants.UnixEpoch).TotalMilliseconds);
+            var isoDate = dateTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFZ");
             var guid = Guid.Empty;
             var objectId = ObjectId.Empty;
             var ht = new Hashtable {
@@ -523,12 +523,12 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
             var json = obj.ToJson();
             var reps = new Hashtable {
                 { "A", "['A', true]" }, 
-                { "B", "['B', { '$date' : #ms }]".Replace("#ms", millis.ToString()) },
+                { "B", "['B', ISODate('#')]".Replace("#", isoDate) },
                 { "C", "['C', 1.5]" }, 
                 { "D", "['D', 1]" }, 
-                { 4, "[4, 2]" },
-                { 5.0, "[5, { '$binary' : 'AAAAAAAAAAAAAAAAAAAAAA==', '$type' : '03' }]" }, 
-                { true, "[true, { '$oid' : '000000000000000000000000' }]" }, 
+                { 4, "[4, NumberLong(2)]" },
+                { 5.0, "[5.0, BinData(3, 'AAAAAAAAAAAAAAAAAAAAAA==')]" }, 
+                { true, "[true, ObjectId('000000000000000000000000')]" }, 
                 { false, "[false, 'x']" }
             };
             var htRep = GetArrayRepresentationInKeyOrder(ht, reps);
@@ -548,7 +548,50 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.DictionarySerializers {
             Assert.IsInstanceOf<ListDictionary>(rehydrated.LD);
             Assert.IsInstanceOf<OrderedDictionary>(rehydrated.OD);
             Assert.IsNull(rehydrated.SL);
-            Assert.IsTrue(bson.SequenceEqual(rehydrated.ToBson()));
+            Assert.IsTrue(CompareDictionaries(obj.HT, rehydrated.HT));
+            Assert.IsTrue(CompareDictionaries(obj.ID, rehydrated.ID));
+            Assert.IsTrue(CompareDictionaries(obj.LD, rehydrated.LD));
+            Assert.IsTrue(CompareOrderedDictionaries(obj.OD, rehydrated.OD));
+            // can't do usual BSON byte by byte comparison because order of Dictionary entries is not guaranteed to stay the same
+        }
+
+        public bool CompareDictionaries(
+            IDictionary dictionary1,
+            IDictionary dictionary2
+        ) {
+            if (object.ReferenceEquals(dictionary1, dictionary2)) { return true; }
+            if (dictionary1 == null) { return false; }
+            if (dictionary2 == null) { return false; }
+            if (dictionary1.Count != dictionary2.Count) { return false; }
+            foreach (var key in dictionary1.Keys) {
+                var item1 = dictionary1[key];
+                var item2 = dictionary2[key];
+                if (object.ReferenceEquals(item1, item2)) { continue; }
+                if (item1 == null) { return false; }
+                if (item2 == null) { return false; }
+                if (!item1.Equals(item2)) { return false; }
+            }
+            return true;
+        }
+
+        public bool CompareOrderedDictionaries(
+            IOrderedDictionary dictionary1,
+            IOrderedDictionary dictionary2
+        ) {
+            if (object.ReferenceEquals(dictionary1, dictionary2)) { return true; }
+            if (dictionary1 == null) { return false; }
+            if (dictionary2 == null) { return false; }
+            if (dictionary1.Count != dictionary2.Count) { return false; }
+            if (!dictionary1.Keys.Cast<object>().SequenceEqual(dictionary2.Keys.Cast<Object>())) { return false; }
+            for (int i = 0; i < dictionary1.Count; i++) {
+                var item1 = dictionary1[i];
+                var item2 = dictionary2[i];
+                if (object.ReferenceEquals(item1, item2)) { continue; }
+                if (item1 == null) { return false; }
+                if (item2 == null) { return false; }
+                if (!item1.Equals(item2)) { return false; }
+            }
+            return true;
         }
 
         private ListDictionary CreateListDictionary(

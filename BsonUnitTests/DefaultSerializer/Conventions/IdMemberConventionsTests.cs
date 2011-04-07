@@ -21,10 +21,9 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
-using MongoDB.Bson.DefaultSerializer.Conventions;
+using MongoDB.Bson.Serialization.Conventions;
 
-namespace MongoDB.BsonUnitTests.DefaultSerializer.Conventions {
+namespace MongoDB.BsonUnitTests.Serialization.Conventions {
     [TestFixture]
     public class IdMemberConventionsTests {
         private class TestClassA {
@@ -36,9 +35,17 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Conventions {
             public ObjectId OtherId { get; set; }
         }
 
+        private class TestClassC {
+            public ObjectId id { get; set; }
+        }
+
+        private class TestClassD {
+            public ObjectId _id { get; set; }
+        }
+
         [Test]
         public void TestNamedIdMemberConvention() {
-            var convention = new NamedIdMemberConvention("Id");
+            var convention = new NamedIdMemberConvention("Id", "id", "_id");
 
             var idMemberName = convention.FindIdMember(typeof(TestClassA));
             Assert.IsNotNull(idMemberName);
@@ -46,6 +53,14 @@ namespace MongoDB.BsonUnitTests.DefaultSerializer.Conventions {
 
             idMemberName = convention.FindIdMember(typeof(TestClassB));
             Assert.IsNull(idMemberName);
+
+            idMemberName = convention.FindIdMember(typeof(TestClassC));
+            Assert.IsNotNull(idMemberName);
+            Assert.AreEqual("id", idMemberName);
+
+            idMemberName = convention.FindIdMember(typeof(TestClassD));
+            Assert.IsNotNull(idMemberName);
+            Assert.AreEqual("_id", idMemberName);
         }
     }
 }

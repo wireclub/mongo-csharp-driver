@@ -20,7 +20,7 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
+using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 
@@ -149,6 +149,70 @@ namespace MongoDB.DriverOnlineTests {
             var result = collection.Find(Query.GT("x", 3));
             Assert.AreEqual(1, result.Count());
             Assert.AreEqual(4, result.Select(x => x["x"].AsInt32).FirstOrDefault());
+        }
+
+        [Test]
+        public void TestFindAndModify() {
+            collection.RemoveAll();
+            collection.Insert(new BsonDocument { { "_id", 1 }, { "priority", 1 }, { "inprogress", false }, { "name", "abc" } });
+            collection.Insert(new BsonDocument { { "_id", 2 }, { "priority", 2 }, { "inprogress", false }, { "name", "def" } });
+
+            var query = Query.EQ("inprogress", false);
+            var sortBy = SortBy.Descending("priority");
+            var started = DateTime.UtcNow;
+            started = started.AddTicks(-(started.Ticks % 10000)); // adjust for MongoDB DateTime precision
+            var update = Update.Set("inprogress", true).Set("started", started);
+            var result = collection.FindAndModify(query, sortBy, update, false); // return old
+            Assert.IsTrue(result.Ok);
+            Assert.AreEqual(2, result.ModifiedDocument["_id"].AsInt32);
+            Assert.AreEqual(2, result.ModifiedDocument["priority"].AsInt32);
+            Assert.AreEqual(false, result.ModifiedDocument["inprogress"].AsBoolean);
+            Assert.AreEqual("def", result.ModifiedDocument["name"].AsString);
+            Assert.IsFalse(result.ModifiedDocument.Contains("started"));
+
+            started = DateTime.UtcNow;
+            started = started.AddTicks(-(started.Ticks % 10000)); // adjust for MongoDB DateTime precision
+            update = Update.Set("inprogress", true).Set("started", started);
+            result = collection.FindAndModify(query, sortBy, update, true); // return new
+            Assert.IsTrue(result.Ok);
+            Assert.AreEqual(1, result.ModifiedDocument["_id"].AsInt32);
+            Assert.AreEqual(1, result.ModifiedDocument["priority"].AsInt32);
+            Assert.AreEqual(true, result.ModifiedDocument["inprogress"].AsBoolean);
+            Assert.AreEqual("abc", result.ModifiedDocument["name"].AsString);
+            Assert.AreEqual(started, result.ModifiedDocument["started"].AsDateTime);
+        }
+
+
+        [Test]
+        public void TestFindAndModifyUpsert() {
+            collection.RemoveAll();
+
+            var query = Query.EQ("name", "Tom");
+            var sortBy = SortBy.Null;
+            var update = Update.Inc("count", 1);
+            var result = collection.FindAndModify(query, sortBy, update, true, true); // upsert
+            Assert.AreEqual("Tom", result.ModifiedDocument["name"].AsString);
+            Assert.AreEqual(1, result.ModifiedDocument["count"].AsInt32);
+        }
+
+        private class FindAndModifyClass {
+            public ObjectId Id;
+            public int Value;
+        }
+
+        [Test]
+        public void TestFindAndModifyTyped() {
+            collection.RemoveAll();
+            var obj = new FindAndModifyClass { Id = ObjectId.GenerateNewId(), Value = 1 };
+            collection.Insert(obj);
+
+            var query = Query.EQ("_id", obj.Id);
+            var sortBy = SortBy.Null;
+            var update = Update.Inc("Value", 1);
+            var result = collection.FindAndModify(query, sortBy, update, true); // returnNew
+            var rehydrated = result.GetModifiedDocumentAs<FindAndModifyClass>();
+            Assert.AreEqual(obj.Id, rehydrated.Id);
+            Assert.AreEqual(2, rehydrated.Value);
         }
 
         [Test]
@@ -516,6 +580,19 @@ namespace MongoDB.DriverOnlineTests {
             Assert.AreEqual(true, collection.IndexExists(IndexKeys.Ascending("y")));
         }
 
+#pragma warning disable 649 // never assigned to
+        private class TestMapReduceDocument {
+            public string Id;
+            [BsonElement("value")]
+            public TestMapReduceValue Value;
+        }
+
+        private class TestMapReduceValue {
+            [BsonElement("count")]
+            public int Count;
+        }
+#pragma warning restore
+
         [Test]
         public void TestMapReduce() {
             // this is Example 1 on p. 87 of MongoDB: The Definitive Guide
@@ -542,43 +619,42 @@ namespace MongoDB.DriverOnlineTests {
                 "    return {count : total};\n" +
                 "}\n";
 
-            using (database.RequestStart()) {
-                var options = MapReduceOptions.SetOutput("mrout");
-                var result = collection.MapReduce(map, reduce, options);
-                Assert.IsTrue(result.Ok);
-                Assert.IsTrue(result.Duration >= TimeSpan.Zero);
-                Assert.AreEqual(9, result.EmitCount);
-                Assert.AreEqual(5, result.OutputCount);
-                Assert.AreEqual(3, result.InputCount);
-                Assert.IsNotNullOrEmpty(result.CollectionName);
+            var options = MapReduceOptions.SetOutput("mrout");
+            var result = collection.MapReduce(map, reduce, options);
+            Assert.IsTrue(result.Ok);
+            Assert.IsTrue(result.Duration >= TimeSpan.Zero);
+            Assert.AreEqual(9, result.EmitCount);
+            Assert.AreEqual(5, result.OutputCount);
+            Assert.AreEqual(3, result.InputCount);
+            Assert.IsNotNullOrEmpty(result.CollectionName);
 
-                var expectedCounts = new Dictionary<string, int> {
+            var expectedCounts = new Dictionary<string, int> {
                     { "A", 1 },
                     { "B", 3 },
                     { "C", 1 },
                     { "X", 1 },
                     { "_id", 3 }
                 };
-                foreach (var document in database[result.CollectionName].FindAll()) {
-                    var key = document["_id"].AsString;
-                    var count = document["value"].AsBsonDocument["count"].ToInt32();
-                    Assert.AreEqual(expectedCounts[key], count);
-                }
+
+            // read output collection ourselves
+            foreach (var document in database[result.CollectionName].FindAll()) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResults
+            foreach (var document in result.GetResults()) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResultsAs<>
+            foreach (var document in result.GetResultsAs<TestMapReduceDocument>()) {
+                Assert.AreEqual(expectedCounts[document.Id], document.Value.Count);
             }
         }
-
-#pragma warning disable 649 // never assigned to
-        private class TestInlineResultDocument {
-            public string Id;
-            [BsonElement("value")]
-            public TestInlineResultValue Value;
-        }
-
-        private class TestInlineResultValue {
-            [BsonElement("count")]
-            public int Count;
-        }
-#pragma warning restore
 
         [Test]
         public void TestMapReduceInline() {
@@ -606,17 +682,15 @@ namespace MongoDB.DriverOnlineTests {
                 "    return {count : total};\n" +
                 "}\n";
 
-            using (database.RequestStart()) {
-                var options = MapReduceOptions.SetOutput(MapReduceOutput.Inline);
-                var result = collection.MapReduce(map, reduce, options);
-                Assert.IsTrue(result.Ok);
-                Assert.IsTrue(result.Duration >= TimeSpan.Zero);
-                Assert.AreEqual(9, result.EmitCount);
-                Assert.AreEqual(5, result.OutputCount);
-                Assert.AreEqual(3, result.InputCount);
-                Assert.IsNullOrEmpty(result.CollectionName);
+            var result = collection.MapReduce(map, reduce);
+            Assert.IsTrue(result.Ok);
+            Assert.IsTrue(result.Duration >= TimeSpan.Zero);
+            Assert.AreEqual(9, result.EmitCount);
+            Assert.AreEqual(5, result.OutputCount);
+            Assert.AreEqual(3, result.InputCount);
+            Assert.IsNullOrEmpty(result.CollectionName);
 
-                var expectedCounts = new Dictionary<string, int> {
+            var expectedCounts = new Dictionary<string, int> {
                     { "A", 1 },
                     { "B", 3 },
                     { "C", 1 },
@@ -624,19 +698,118 @@ namespace MongoDB.DriverOnlineTests {
                     { "_id", 3 }
                 };
 
-                // test InlineResults as BsonDocuments
-                foreach (var document in result.InlineResults) {
-                    var key = document["_id"].AsString;
-                    var count = document["value"].AsBsonDocument["count"].ToInt32();
-                    Assert.AreEqual(expectedCounts[key], count);
-                }
+            // test InlineResults as BsonDocuments
+            foreach (var document in result.InlineResults) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
 
-                // test InlineResults as TestInlineResultDocument
-                foreach (var document in result.GetInlineResultsAs<TestInlineResultDocument>()) {
-                    var key = document.Id;
-                    var count = document.Value.Count;
-                    Assert.AreEqual(expectedCounts[key], count);
-                }
+            // test InlineResults as TestInlineResultDocument
+            foreach (var document in result.GetInlineResultsAs<TestMapReduceDocument>()) {
+                var key = document.Id;
+                var count = document.Value.Count;
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResults
+            foreach (var document in result.GetResults()) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResultsAs<>
+            foreach (var document in result.GetResultsAs<TestMapReduceDocument>()) {
+                Assert.AreEqual(expectedCounts[document.Id], document.Value.Count);
+            }
+        }
+
+        [Test]
+        public void TestMapReduceInlineWithQuery() {
+            // this is Example 1 on p. 87 of MongoDB: The Definitive Guide
+            // by Kristina Chodorow and Michael Dirolf
+
+            collection.RemoveAll();
+            collection.Insert(new BsonDocument { { "A", 1 }, { "B", 2 } });
+            collection.Insert(new BsonDocument { { "B", 1 }, { "C", 2 } });
+            collection.Insert(new BsonDocument { { "X", 1 }, { "B", 2 } });
+
+            var query = Query.Exists("B", true);
+
+            var map =
+                "function() {\n" +
+                "    for (var key in this) {\n" +
+                "        emit(key, {count : 1});\n" +
+                "    }\n" +
+                "}\n";
+
+            var reduce =
+                "function(key, emits) {\n" +
+                "    total = 0;\n" +
+                "    for (var i in emits) {\n" +
+                "        total += emits[i].count;\n" +
+                "    }\n" +
+                "    return {count : total};\n" +
+                "}\n";
+
+            var result = collection.MapReduce(query, map, reduce);
+            Assert.IsTrue(result.Ok);
+            Assert.IsTrue(result.Duration >= TimeSpan.Zero);
+            Assert.AreEqual(9, result.EmitCount);
+            Assert.AreEqual(5, result.OutputCount);
+            Assert.AreEqual(3, result.InputCount);
+            Assert.IsNullOrEmpty(result.CollectionName);
+
+            var expectedCounts = new Dictionary<string, int> {
+                    { "A", 1 },
+                    { "B", 3 },
+                    { "C", 1 },
+                    { "X", 1 },
+                    { "_id", 3 }
+                };
+
+            // test InlineResults as BsonDocuments
+            foreach (var document in result.InlineResults) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test InlineResults as TestInlineResultDocument
+            foreach (var document in result.GetInlineResultsAs<TestMapReduceDocument>()) {
+                var key = document.Id;
+                var count = document.Value.Count;
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResults
+            foreach (var document in result.GetResults()) {
+                var key = document["_id"].AsString;
+                var count = document["value"].AsBsonDocument["count"].ToInt32();
+                Assert.AreEqual(expectedCounts[key], count);
+            }
+
+            // test GetResultsAs<>
+            foreach (var document in result.GetResultsAs<TestMapReduceDocument>()) {
+                Assert.AreEqual(expectedCounts[document.Id], document.Value.Count);
+            }
+        }
+
+        [Test]
+        public void TestReIndex() {
+            collection.RemoveAll();
+            collection.Insert(new BsonDocument("x", 1));
+            collection.Insert(new BsonDocument("x", 2));
+            collection.DropAllIndexes();
+            collection.CreateIndex("x");
+            // note: prior to 1.8.1 the reIndex command was returning duplicate ok elements
+            try {
+                var result = collection.ReIndex();
+                Assert.AreEqual(2, result.Response["nIndexes"].ToInt32());
+                Assert.AreEqual(2, result.Response["nIndexesWas"].ToInt32());
+            } catch (InvalidOperationException ex) {
+                Assert.AreEqual("Duplicate element name: 'ok'.", ex.Message);
             }
         }
 
@@ -648,6 +821,36 @@ namespace MongoDB.DriverOnlineTests {
             Assert.AreEqual(2, result.ElementCount);
             Assert.AreEqual("_id", result.GetElement(0).Name);
             Assert.AreEqual("x", result.GetElement(1).Name);
+        }
+
+        [Test]
+        public void TestSetHint() {
+            collection.DropAllIndexes();
+            collection.RemoveAll();
+            collection.Insert(new BsonDocument { { "x", 1 }, { "y", 2 } });
+            collection.CreateIndex(IndexKeys.Ascending("x"));
+            var query = Query.EQ("x", 1);
+            var cursor = collection.Find(query).SetHint(new BsonDocument("x", 1));
+            var count = 0;
+            foreach (var document in cursor) {
+                Assert.AreEqual(1, ++count);
+                Assert.AreEqual(1, document["x"].AsInt32);
+            }
+        }
+
+        [Test]
+        public void TestSetHintByIndexName() {
+            collection.DropAllIndexes();
+            collection.RemoveAll();
+            collection.Insert(new BsonDocument { { "x", 1 }, { "y", 2 } });
+            collection.CreateIndex(IndexKeys.Ascending("x"), IndexOptions.SetName("xIndex"));
+            var query = Query.EQ("x", 1);
+            var cursor = collection.Find(query).SetHint("xIndex");
+            var count = 0;
+            foreach (var document in cursor) {
+                Assert.AreEqual(1, ++count);
+                Assert.AreEqual(1, document["x"].AsInt32);
+            }
         }
 
         [Test]

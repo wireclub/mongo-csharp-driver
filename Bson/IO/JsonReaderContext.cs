@@ -47,11 +47,15 @@ namespace MongoDB.Bson.IO {
         #endregion
 
         #region public methods
+        /// <summary>
+        /// Creates a clone of the context.
+        /// </summary>
+        /// <returns>A clone of the context.</returns>
         public JsonReaderContext Clone() {
-            var clone = new JsonReaderContext();
-            clone.parentContext = this.parentContext;
-            clone.contextType = this.contextType;
-            return clone;
+            return new JsonReaderContext(
+                parentContext,
+                contextType
+            );
         }
 
         public JsonReaderContext PopContext() {

@@ -21,7 +21,6 @@ using System.Text;
 using NUnit.Framework;
 
 using MongoDB.Bson;
-using MongoDB.Bson.DefaultSerializer;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 
@@ -316,11 +315,7 @@ namespace MongoDB.DriverOnlineTests.Jira.CSharp101 {
             collection.RemoveAll();
 
             var document = new CNoId { A = 1 };
-            collection.Save(document);
-            Assert.AreEqual(1, collection.Count());
-
-            collection.Save(document);
-            Assert.AreEqual(2, collection.Count());
+            Assert.Throws<InvalidOperationException>(() => collection.Save(document));
         }
 
         [Test]
