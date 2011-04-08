@@ -232,10 +232,23 @@ namespace MongoDB.Driver {
         /// to enumerate the cursor (foreach will call GetEnumerator for you).
         /// </summary>
         /// <returns>An enumerator that can be used to iterate over the cursor.</returns>
+        //public virtual IEnumerator<TDocument> GetEnumerator()
+        //{
+        //    isFrozen = true;
+        //    return new MongoCursorEnumerator<TDocument>(this);
+        //}
+
+        //-------------------------------------------------------------------
+        private bool _enumerated;
         public virtual IEnumerator<TDocument> GetEnumerator() {
+            if (_enumerated)
+                throw new Exception("YOU ARE A PERFORMANCE CRIMINAL");
+            _enumerated = true;
+
             isFrozen = true;
             return new MongoCursorEnumerator<TDocument>(this);
         }
+        //-------------------------------------------------------------------
 
         /// <summary>
         /// Sets the batch size (the number of documents returned per batch).
