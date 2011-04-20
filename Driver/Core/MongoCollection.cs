@@ -23,6 +23,7 @@ using System.Text;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver.Builders;
+using MongoDB.Driver.Core;
 using MongoDB.Driver.Internal;
 using MongoDB.Driver.Wrappers;
 
@@ -724,35 +725,52 @@ namespace MongoDB.Driver {
             try {
                 List<SafeModeResult> results = (safeMode.Enabled) ? new List<SafeModeResult>() : null;
 
-                using (var message = new MongoInsertMessage(server, FullName)) {
-                    message.WriteToBuffer(); // must be called before AddDocument
+                using (var message = new MongoInsertMessage(server, FullName))
+                {
+                	return Trace.DoWrappedTrace(
+                		() =>
+                			{
+                				message.WriteToBuffer(); // must be called before AddDocument
 
-                    foreach (var document in documents) {
-                        if (settings.AssignIdOnInsert) {
-                            var serializer = BsonSerializer.LookupSerializer(document.GetType());
-                            object id;
-                            IIdGenerator idGenerator;
-                            if (serializer.GetDocumentId(document, out id, out idGenerator)) {
-                                if (idGenerator != null && idGenerator.IsEmpty(id)) {
-                                    id = idGenerator.GenerateId();
-                                    serializer.SetDocumentId(document, id);
-                                }
-                            }
-                        }
-                        message.AddDocument(document);
+                				foreach (var document in documents)
+                				{
+                					if (settings.AssignIdOnInsert)
+                					{
+                						var serializer = BsonSerializer.LookupSerializer(document.GetType());
+                						object id;
+                						IIdGenerator idGenerator;
+                						if (serializer.GetDocumentId(document, out id, out idGenerator))
+                						{
+                							if (idGenerator != null && idGenerator.IsEmpty(id))
+                							{
+                								id = idGenerator.GenerateId();
+                								serializer.SetDocumentId(document, id);
+                							}
+                						}
+                					}
+                					message.AddDocument(document);
 
-                        if (message.MessageLength > server.MaxMessageLength) {
-                            byte[] lastDocument = message.RemoveLastDocument();
-                            var intermediateResult = connection.SendMessage(message, safeMode);
-                            if (safeMode.Enabled) { results.Add(intermediateResult); }
-                            message.ResetBatch(lastDocument);
-                        }
-                    }
+                					if (message.MessageLength > server.MaxMessageLength)
+                					{
+                						byte[] lastDocument = message.RemoveLastDocument();
+                						var intermediateResult = connection.SendMessage(message, safeMode);
+                						if (safeMode.Enabled)
+                						{
+                							results.Add(intermediateResult);
+                						}
+                						message.ResetBatch(lastDocument);
+                					}
+                				}
 
-                    var finalResult = connection.SendMessage(message, safeMode);
-                    if (safeMode.Enabled) { results.Add(finalResult); }
+                				var finalResult = connection.SendMessage(message, safeMode);
+                				if (safeMode.Enabled)
+                				{
+                					results.Add(finalResult);
+                				}
 
-                    return results;
+								return results;
+
+                			}, "InsertBatch", FullName, "[Batch]");
                 }
             } finally {
                 server.ReleaseConnection(connection);
@@ -1049,7 +1067,9 @@ namespace MongoDB.Driver {
             using (var message = new MongoUpdateMessage(server, FullName, flags, query, update)) {
                 var connection = server.AcquireConnection(database, false); // not slaveOk
                 try {
-                    return connection.SendMessage(message, safeMode);
+                    return
+						Trace.DoWrappedTrace(() => connection.SendMessage(message, safeMode), "Update", FullName, query.ToString());
+
                 } finally {
                     server.ReleaseConnection(connection);
                 }

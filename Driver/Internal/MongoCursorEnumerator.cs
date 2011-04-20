@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -158,14 +159,17 @@ namespace MongoDB.Driver.Internal {
                         WrapQuery(),
                         cursor.Fields
                     )
-                ) {
-                    return GetReply(message);
+                )
+                {
+                	return Core.Trace.DoWrappedTrace(() => GetReply(message), "GetFirst", cursor.Collection.FullName, WrapQuery());
                 }
             } catch {
                 try { ReleaseConnection(); } catch { } // ignore exceptions
                 throw;
             }
         }
+		
+		static object logLock = new object();
 
         private MongoReplyMessage<TDocument> GetMore() {
             try {
@@ -187,7 +191,7 @@ namespace MongoDB.Driver.Internal {
                         openCursorId
                     )
                 ) {
-                    return GetReply(message);
+					return Core.Trace.DoWrappedTrace(() => GetReply(message), "GetMore", cursor.Collection.FullName, WrapQuery());
                 }
             } catch {
                 try { ReleaseConnection(); } catch { } // ignore exceptions
