@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.Web;
 
@@ -9,11 +10,14 @@ namespace MongoDB.Driver.Core
 
 	public static class Trace
 	{
-		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
+		public static bool EnableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "false");
+
+		public static T DoWrappedTrace<T>(TraceDelgate<T> action, string context, string collection, object query)
 		{
 			var stopwatch = new Stopwatch();
 			stopwatch.Start();
 			var result = action();
+
             stopwatch.Stop();
 
             if (HttpContext.Current != null)
@@ -25,7 +29,7 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + stopwatch.ElapsedMilliseconds;
             }
 
-            if(stopwatch.ElapsedMilliseconds > 10)
+            if(EnableTracing && stopwatch.ElapsedMilliseconds > 10)
             {
                 Debug.WriteLine("[Mongo:" + context + "] " + stopwatch.ElapsedMilliseconds + "ms " + collection);
                 // Debug.WriteLine(new StackTrace());
