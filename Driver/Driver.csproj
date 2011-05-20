@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MongoDB.Driver</RootNamespace>
     <AssemblyName>MongoDB.Driver</AssemblyName>
-    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
@@ -31,6 +31,7 @@
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -53,7 +54,7 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>..\Keys\TemporaryKeyPair.snk</AssemblyOriginatorKeyFile>
@@ -63,6 +64,7 @@
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
@@ -193,6 +195,10 @@
     <Compile Include="Core\UpdateFlags.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\AOD\AOD.csproj">
+      <Project>{D16BD9BB-F6D7-449F-9A61-9C5143B51FFE}</Project>
+      <Name>AOD</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Bson\Bson.csproj">
       <Project>{0E9A3A2A-49CD-4F6C-847C-DC79B4B65CE6}</Project>
       <Name>Bson</Name>

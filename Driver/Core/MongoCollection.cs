@@ -191,8 +191,10 @@ namespace MongoDB.Driver {
         /// <summary>
         /// Drops this collection.
         /// </summary>
-        public virtual void Drop() {
+        public virtual void Drop()
+        {
             database.DropCollection(name);
+            server.IndexCache.Reset(this);
         }
 
         /// <summary>
