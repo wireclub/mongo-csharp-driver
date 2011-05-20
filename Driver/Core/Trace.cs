@@ -12,7 +12,7 @@ namespace MongoDB.Driver.Core
 	{
 		public static bool EnableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "false");
 
-		public static T DoWrappedTrace<T>(TraceDelgate<T> action, string context, string collection, object query)
+		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
 		{
 			var stopwatch = new Stopwatch();
 			stopwatch.Start();
