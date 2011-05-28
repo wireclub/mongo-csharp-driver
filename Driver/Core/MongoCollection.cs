@@ -1070,7 +1070,7 @@ namespace MongoDB.Driver {
                 var connection = server.AcquireConnection(database, false); // not slaveOk
                 try {
                     return
-						Trace.DoWrappedTrace(() => connection.SendMessage(message, safeMode), "Update", FullName, query.ToString());
+						Trace.DoWrappedTrace(() => connection.SendMessage(message, safeMode), "Update", FullName, query);
 
                 } finally {
                     server.ReleaseConnection(connection);

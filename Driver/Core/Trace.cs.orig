@@ -2,22 +2,26 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Linq;
 using System.Web;
 
 namespace MongoDB.Driver.Core
 {
-	public delegate T TraceDelegate<out T>();
+	public delegate T TraceDelegate<T>();
 
 	public static class Trace
 	{
+<<<<<<< HEAD
+		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
+=======
 		public static bool EnableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "false");
 
-		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
+		public static T DoWrappedTrace<T>(TraceDelgate<T> action, string context, string collection, object query)
+>>>>>>> ff365d272cc445893636f12aaf31b3a4b465d30d
 		{
 			var stopwatch = new Stopwatch();
 			stopwatch.Start();
 			var result = action();
+<<<<<<< HEAD
             stopwatch.Stop();
 
             if (HttpContext.Current != null)
@@ -29,16 +33,19 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + stopwatch.ElapsedMilliseconds;
             }
 
-            if (EnableTracing && stopwatch.ElapsedMilliseconds > 20)
+            if(stopwatch.ElapsedMilliseconds > 10)
             {
-                var q = query as QueryDocument;
-                if (q != null)
-                    query = string.Join(", ", q.Elements.Select(e => e.Value.ToString()).ToArray());
-
-                Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, stopwatch.ElapsedMilliseconds, collection, query));
+                Debug.WriteLine("[Mongo:" + context + "] " + stopwatch.ElapsedMilliseconds + "ms " + collection);
                 // Debug.WriteLine(new StackTrace());
             }
 
+=======
+			if (EnableTracing)
+			{
+				Debug.WriteLine("[Mongo:" + context + "] " + stopwatch.ElapsedMilliseconds + "ms " + collection + " " + query);
+				//Debug.WriteLine(new StackTrace());
+			}
+>>>>>>> ff365d272cc445893636f12aaf31b3a4b465d30d
 			return result;
 		}
 	}
