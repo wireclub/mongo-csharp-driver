@@ -213,6 +213,9 @@ namespace MongoDB.Bson {
                     if (value is IDictionary<string, object>) {
                         return new BsonDocument((IDictionary<string, object>) value);
                     }
+                    if (value is IDictionary) {
+                        return new BsonDocument((IDictionary) value);
+                    }
                     break;
             }
 
@@ -231,7 +234,8 @@ namespace MongoDB.Bson {
             out BsonValue bsonValue
         ) {
             if (value == null) {
-                throw new ArgumentNullException("Value to be mapped to BsonValue cannot be null");
+                bsonValue = null;
+                return false;
             }
 
             var valueType = value.GetType();
@@ -263,6 +267,10 @@ namespace MongoDB.Bson {
             }
             if (value is IDictionary<string, object>) {
                 bsonValue = new BsonDocument((IDictionary<string, object>) value);
+                return true;
+            }
+            if (value is IDictionary) {
+                bsonValue = new BsonDocument((IDictionary) value);
                 return true;
             }
 

@@ -42,6 +42,7 @@ namespace MongoDB.Bson.Serialization {
         private static Dictionary<Type, IDiscriminatorConvention> discriminatorConventions = new Dictionary<Type, IDiscriminatorConvention>();
         private static Dictionary<BsonValue, HashSet<Type>> discriminators = new Dictionary<BsonValue, HashSet<Type>>();
         private static HashSet<Type> typesWithRegisteredKnownTypes = new HashSet<Type>();
+        private static HashSet<Type> discriminatedTypes = new HashSet<Type>();
         #endregion
 
         #region static constructor
@@ -146,6 +147,17 @@ namespace MongoDB.Bson.Serialization {
 
         #region public static methods
         /// <summary>
+        /// Returns whether the given type has any discriminators registered for any of its subclasses.
+        /// </summary>
+        /// <param name="type">A Type.</param>
+        /// <returns>True if the type is discriminated.</returns>
+        public static bool IsTypeDiscriminated(
+            Type type
+        ) {
+            return type.IsInterface || discriminatedTypes.Contains(type);
+        }
+
+        /// <summary>
         /// Looks up the actual type of an object to be deserialized.
         /// </summary>
         /// <param name="nominalType">The nominal type of the object.</param>
@@ -163,8 +175,8 @@ namespace MongoDB.Bson.Serialization {
             lock (BsonSerializer.ConfigLock) {
                 Type actualType = null;
 
-                // make sure any "known types" of nominal type have been registered
-                RegisterKnownTypes(nominalType);
+                // make sure any KnownTypes of nominal type have been registered
+                EnsureKnownTypesAreRegistered(nominalType);
 
                 HashSet<Type> hashSet;
                 if (discriminators.TryGetValue(discriminator, out hashSet)) {
@@ -257,6 +269,11 @@ namespace MongoDB.Bson.Serialization {
             Type type,
             BsonValue discriminator
         ) {
+            if (type.IsInterface) {
+                var message = string.Format("Discriminators can only be registered for classes, not for interface: {0}", type.FullName);
+                throw new BsonSerializationException(message);
+            }
+
             lock (BsonSerializer.ConfigLock) {
                 HashSet<Type> hashSet;
                 if (!discriminators.TryGetValue(discriminator, out hashSet)) {
@@ -264,7 +281,14 @@ namespace MongoDB.Bson.Serialization {
                     discriminators.Add(discriminator, hashSet);
                 }
 
-                hashSet.Add(type);
+                if (!hashSet.Contains(type)) {
+                    hashSet.Add(type);
+
+                    // mark all base types as discriminated (so we know that it's worth reading a discriminator)
+                    for (var baseType = type.BaseType; baseType != null; baseType = baseType.BaseType) {
+                        discriminatedTypes.Add(baseType);
+                    }
+                }
             }
         }
 
@@ -288,19 +312,21 @@ namespace MongoDB.Bson.Serialization {
         }
         #endregion
 
-        #region private static methods
-        private static void RegisterKnownTypes(
+        #region internal static methods
+        internal static void EnsureKnownTypesAreRegistered(
             Type nominalType
         ) {
-            if (!typesWithRegisteredKnownTypes.Contains(nominalType)) {
-                // only call LookupClassMap for classes with a BsonKnownTypesAttribute
-                var knownTypesAttribute = nominalType.GetCustomAttributes(typeof(BsonKnownTypesAttribute), false);
-                if (knownTypesAttribute != null && knownTypesAttribute.Length > 0) {
-                    // known types will be registered as a side effect of calling LookupClassMap
-                    BsonClassMap.LookupClassMap(nominalType);
-                }
+            lock (BsonSerializer.ConfigLock) {
+                if (!typesWithRegisteredKnownTypes.Contains(nominalType)) {
+                    // only call LookupClassMap for classes with a BsonKnownTypesAttribute
+                    var knownTypesAttribute = nominalType.GetCustomAttributes(typeof(BsonKnownTypesAttribute), false);
+                    if (knownTypesAttribute != null && knownTypesAttribute.Length > 0) {
+                        // known types will be registered as a side effect of calling LookupClassMap
+                        BsonClassMap.LookupClassMap(nominalType);
+                    }
 
-                typesWithRegisteredKnownTypes.Add(nominalType);
+                    typesWithRegisteredKnownTypes.Add(nominalType);
+                }
             }
         }
         #endregion

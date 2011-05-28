@@ -73,34 +73,37 @@ namespace MongoDB.Driver.Builders {
         ) {
             var document = new BsonDocument();
             foreach (var query in queries) {
-                foreach (var queryElement in query.ToBsonDocument()) {
-                    // if result document has existing operations for same field append the new ones
-                    if (document.Contains(queryElement.Name)) {
-                        var existingOperations = document[queryElement.Name] as BsonDocument;
-                        var newOperations = queryElement.Value as BsonDocument;
+                if (query != null) {
+                    foreach (var queryElement in query.ToBsonDocument()) {
+                        // if result document has existing operations for same field append the new ones
+                        if (document.Contains(queryElement.Name)) {
+                            var existingOperations = document[queryElement.Name] as BsonDocument;
+                            var newOperations = queryElement.Value as BsonDocument;
 
-                        // make sure that no conditions are Query.EQ, because duplicates aren't allowed
-                        if (existingOperations == null || newOperations == null) {
-                            var message = string.Format("Query.And does not support combining equality comparisons with other operators (field: '{0}')", queryElement.Name);
-                            throw new InvalidOperationException(message);
-                        }
-
-                        // add each new operation to the existing operations
-                        foreach (var operation in newOperations) {
-                            // make sure that there are no duplicate $operators
-                            if (existingOperations.Contains(operation.Name)) {
-                                var message = string.Format("Query.And does not support using the same operator more than once (field: '{0}', operator: '{1}')", queryElement.Name, operation.Name);
+                            // make sure that no conditions are Query.EQ, because duplicates aren't allowed
+                            if (existingOperations == null || newOperations == null) {
+                                var message = string.Format("Query.And does not support combining equality comparisons with other operators (field: '{0}')", queryElement.Name);
                                 throw new InvalidOperationException(message);
-                            } else {
-                                existingOperations.Add(operation);
                             }
+
+                            // add each new operation to the existing operations
+                            foreach (var operation in newOperations) {
+                                // make sure that there are no duplicate $operators
+                                if (existingOperations.Contains(operation.Name)) {
+                                    var message = string.Format("Query.And does not support using the same operator more than once (field: '{0}', operator: '{1}')", queryElement.Name, operation.Name);
+                                    throw new InvalidOperationException(message);
+                                } else {
+                                    existingOperations.Add(operation);
+                                }
+                            }
+                        } else {
+                            document.Add(queryElement);
                         }
-                    } else {
-                        document.Add(queryElement);
                     }
                 }
             }
-            return new QueryComplete(document);
+
+            return document.ElementCount > 0 ? new QueryComplete(document) : null;
         }
 
         /// <summary>
@@ -375,10 +378,19 @@ namespace MongoDB.Driver.Builders {
         ) {
             var clauses = new BsonArray();
             foreach (var query in queries) {
-                clauses.Add(query.ToBsonDocument());
+                if (query != null) {
+                    clauses.Add(query.ToBsonDocument());
+                }
             }
-            var document = new BsonDocument("$or", clauses);
-            return new QueryComplete(document);
+
+            switch (clauses.Count) {
+                case 0:
+                    return null;
+                case 1:
+                    return new QueryComplete(clauses[0].AsBsonDocument);
+                default:
+                    return new QueryComplete(new BsonDocument("$or", clauses));
+            }
         }
 
         /// <summary>
@@ -893,7 +905,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList All(
             BsonArray values
         ) {
-            return new QueryNotConditionList(name, "$all", values);
+            return new QueryNotConditionList(name).All(values);
         }
 
         /// <summary>
@@ -904,7 +916,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList All(
             params BsonValue[] values
         ) {
-            return new QueryNotConditionList(name, "$all", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryNotConditionList(name).All(values);
         }
 
         /// <summary>
@@ -915,7 +927,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList ElemMatch(
             IMongoQuery query
         ) {
-            return new QueryNotConditionList(name, "$elemMatch", query.ToBsonDocument());
+            return new QueryNotConditionList(name).ElemMatch(query);
         }
 
         /// <summary>
@@ -926,7 +938,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList Exists(
             bool exists
         ) {
-            return new QueryNotConditionList(name, "$exists", BsonBoolean.Create(exists));
+            return new QueryNotConditionList(name).Exists(exists);
         }
 
         /// <summary>
@@ -937,7 +949,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList GT(
             BsonValue value
         ) {
-            return new QueryNotConditionList(name, "$gt", value);
+            return new QueryNotConditionList(name).GT(value);
         }
 
         /// <summary>
@@ -948,7 +960,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList GTE(
             BsonValue value
         ) {
-            return new QueryNotConditionList(name, "$gte", value);
+            return new QueryNotConditionList(name).GTE(value);
         }
 
         /// <summary>
@@ -959,7 +971,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList In(
             BsonArray values
         ) {
-            return new QueryNotConditionList(name, "$in", values);
+            return new QueryNotConditionList(name).In(values);
         }
 
         /// <summary>
@@ -970,7 +982,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList In(
             params BsonValue[] values
         ) {
-            return new QueryNotConditionList(name, "$in", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryNotConditionList(name).In(values);
         }
 
         /// <summary>
@@ -981,7 +993,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList LT(
             BsonValue value
         ) {
-            return new QueryNotConditionList(name, "$lt", value);
+            return new QueryNotConditionList(name).LT(value);
         }
 
         /// <summary>
@@ -992,7 +1004,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList LTE(
             BsonValue value
         ) {
-            return new QueryNotConditionList(name, "$lte", value);
+            return new QueryNotConditionList(name).LTE(value);
         }
 
         /// <summary>
@@ -1005,7 +1017,7 @@ namespace MongoDB.Driver.Builders {
             int modulus,
             int equals
         ) {
-            return new QueryNotConditionList(name, "$mod", new BsonArray { modulus, equals });
+            return new QueryNotConditionList(name).Mod(modulus, equals);
         }
 
         /// <summary>
@@ -1016,7 +1028,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList NE(
             BsonValue value
         ) {
-            return new QueryNotConditionList(name, "$ne", value);
+            return new QueryNotConditionList(name).NE(value);
         }
 
         /// <summary>
@@ -1027,7 +1039,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList NotIn(
             BsonArray values
         ) {
-            return new QueryNotConditionList(name, "nin", values);
+            return new QueryNotConditionList(name).NotIn(values);
         }
 
         /// <summary>
@@ -1038,7 +1050,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList NotIn(
             params BsonValue[] values
         ) {
-            return new QueryNotConditionList(name, "nin", new BsonArray((IEnumerable<BsonValue>) values));
+            return new QueryNotConditionList(name).NotIn(values);
         }
 
         /// <summary>
@@ -1058,9 +1070,9 @@ namespace MongoDB.Driver.Builders {
         /// <param name="size">The size of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public QueryNotConditionList Size(
-            BsonValue size
+            int size
         ) {
-            return new QueryNotConditionList(name, "$size", size);
+            return new QueryNotConditionList(name).Size(size);
         }
 
         /// <summary>
@@ -1071,7 +1083,7 @@ namespace MongoDB.Driver.Builders {
         public QueryNotConditionList Type(
             BsonType type
         ) {
-            return new QueryNotConditionList(name, "$type", (int) type);
+            return new QueryNotConditionList(name).Type(type);
         }
         #endregion
     }
@@ -1090,14 +1102,10 @@ namespace MongoDB.Driver.Builders {
         /// Initializes a new instance of the QueryNotConditionList.
         /// </summary>
         /// <param name="name">The name of the first element to be tested.</param>
-        /// <param name="op">The first test.</param>
-        /// <param name="value">The value of the first test.</param>
         public QueryNotConditionList(
-            string name,
-            string op,
-            BsonValue value
+            string name
         )
-            : base(new BsonDocument(name, new BsonDocument("$not", new BsonDocument(op, value)))) {
+            : base(new BsonDocument(name, new BsonDocument("$not", new BsonDocument()))) {
             conditions = document[0].AsBsonDocument[0].AsBsonDocument;
         }
         #endregion

@@ -126,7 +126,7 @@ namespace MongoDB.Bson {
         /// <seealso cref="IDictionary" />
         public BsonDocument(
             IDictionary dictionary,
-            IEnumerable<string> keys
+            IEnumerable keys
         )
             : base(BsonType.Document) {
             Add(dictionary, keys);
@@ -338,6 +338,20 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
+        /// Parses a JSON string and returns a BsonDocument.
+        /// </summary>
+        /// <param name="json">The JSON string.</param>
+        /// <returns>A BsonDocument.</returns>
+        public static BsonDocument Parse(
+            string json
+        ) {
+            using (var bsonReader = BsonReader.Create(json)) {
+                var document = new BsonDocument();
+                return (BsonDocument) document.Deserialize(bsonReader, typeof(BsonDocument), null);
+            }
+        }
+
+        /// <summary>
         /// Reads a BsonDocument from a BsonBuffer.
         /// </summary>
         /// <param name="buffer">The BsonBuffer.</param>
@@ -438,7 +452,7 @@ namespace MongoDB.Bson {
             IDictionary dictionary
         ) {
             if (dictionary != null) {
-                Add(dictionary, dictionary.Keys.Cast<string>());
+                Add(dictionary, dictionary.Keys);
             }
             return this;
         }
@@ -451,10 +465,10 @@ namespace MongoDB.Bson {
         /// <returns>The document (so method calls can be chained).</returns>
         public BsonDocument Add(
             IDictionary dictionary,
-            IEnumerable<string> keys
+            IEnumerable keys
         ) {
             if (dictionary != null) {
-                foreach (var key in keys) {
+                foreach (string key in keys) {
                     Add(key, BsonValue.Create(dictionary[key]));
                 }
             }
@@ -661,25 +675,29 @@ namespace MongoDB.Bson {
         /// <summary>
         /// Gets the Id of the document.
         /// </summary>
-        /// <param name="id">The Id of the document.</param>
+        /// <param name="id">The Id of the document (the RawValue if it has one, otherwise the element Value).</param>
+        /// <param name="idNominalType">The nominal type of the Id.</param>
         /// <param name="idGenerator">The IdGenerator for the Id (or null).</param>
         /// <returns>True (a BsonDocument either has an Id member or one can be added).</returns>
         public bool GetDocumentId(
             out object id,
+            out Type idNominalType,
             out IIdGenerator idGenerator
         ) {
             BsonElement idElement;
             if (TryGetElement("_id", out idElement)) {
                 id = idElement.Value.RawValue;
-                if (id != null) {
-                    idGenerator = BsonSerializer.LookupIdGenerator(id.GetType());
-                } else {
-                    idGenerator = ObjectIdGenerator.Instance;
+                if (id == null) {
+                    id = idElement.Value;
                 }
+
+                idGenerator = BsonSerializer.LookupIdGenerator(id.GetType());
             } else {
                 id = null;
                 idGenerator = ObjectIdGenerator.Instance;
             }
+
+            idNominalType = typeof(BsonValue);
             return true;
         }
 
@@ -983,6 +1001,14 @@ namespace MongoDB.Bson {
                 Add(element);
             }
             return this;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the document.
+        /// </summary>
+        /// <returns>A string representation of the document.</returns>
+        public override string ToString() {
+            return this.ToJson();
         }
 
         /// <summary>

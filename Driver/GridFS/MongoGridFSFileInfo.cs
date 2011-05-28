@@ -20,13 +20,15 @@ using System.Linq;
 using System.Text;
 
 using MongoDB.Bson;
+using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver.Builders;
 
 namespace MongoDB.Driver.GridFS {
     /// <summary>
     /// Represents information about a GridFS file (patterned after .NET's FileInfo class).
     /// </summary>
-    public class MongoGridFSFileInfo {
+    public class MongoGridFSFileInfo : IBsonSerializable {
         #region private fields
         // these fields are considered in Equals and GetHashCode
         private string[] aliases;
@@ -46,6 +48,10 @@ namespace MongoDB.Driver.GridFS {
         #endregion
 
         #region constructors
+        // used by Deserialize
+        private MongoGridFSFileInfo() {
+        }
+
         internal MongoGridFSFileInfo(
             MongoGridFS gridFS,
             BsonDocument fileInfo
@@ -95,7 +101,7 @@ namespace MongoDB.Driver.GridFS {
         ) {
             this.gridFS = gridFS;
             this.aliases = createOptions.Aliases;
-            this.chunkSize = createOptions.ChunkSize;
+            this.chunkSize = createOptions.ChunkSize == 0 ? gridFS.Settings.ChunkSize : createOptions.ChunkSize;
             this.contentType = createOptions.ContentType;
             this.id = createOptions.Id;
             this.metadata = createOptions.Metadata;
@@ -486,7 +492,12 @@ namespace MongoDB.Driver.GridFS {
                 exists = true;
                 id = fileInfo["_id"];
                 length = fileInfo["length"].ToInt32();
-                md5 = (string) fileInfo["md5", null];
+                var md5Value = fileInfo["md5", null];
+                if (md5Value != null && !md5Value.IsBsonNull) {
+                    md5 = md5Value.AsString;
+                } else {
+                    md5 = null;
+                }
                 var metadataValue = fileInfo["metadata", null];
                 if (metadataValue != null && !metadataValue.IsBsonNull) {
                     metadata = metadataValue.AsBsonDocument;
@@ -502,6 +513,46 @@ namespace MongoDB.Driver.GridFS {
                 uploadDate = fileInfo["uploadDate"].AsDateTime;
             }
             cached = true;
+        }
+        #endregion
+
+        #region explicit interface implementations
+        object IBsonSerializable.Deserialize(
+            BsonReader bsonReader,
+            Type nominalType,
+            IBsonSerializationOptions options
+        ) {
+            MongoGridFS gridFS = ((SerializationOptions) options).GridFS;
+            var fileInfo = BsonDocument.ReadFrom(bsonReader);
+            return new MongoGridFSFileInfo(gridFS, fileInfo);
+        }
+
+        bool IBsonSerializable.GetDocumentId(
+            out object id,
+            out Type idNominalType,
+            out IIdGenerator idGenerator
+        ) {
+            throw new NotSupportedException();
+        }
+
+        void IBsonSerializable.Serialize(
+            BsonWriter bsonWriter,
+            Type nominalType,
+            IBsonSerializationOptions options
+        ) {
+            throw new NotSupportedException();
+        }
+
+        void IBsonSerializable.SetDocumentId(
+            object id
+        ) {
+            throw new NotSupportedException();
+        }
+        #endregion
+
+        #region nested classes
+        internal class SerializationOptions : IBsonSerializationOptions {
+            internal MongoGridFS GridFS;
         }
         #endregion
     }

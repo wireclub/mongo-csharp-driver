@@ -25,6 +25,56 @@ using MongoDB.Bson.IO;
 
 namespace MongoDB.Bson.Serialization.IdGenerators {
     /// <summary>
+    /// Represents an Id generator for BsonObjectIds.
+    /// </summary>
+    public class BsonObjectIdGenerator : IIdGenerator {
+        #region private static fields
+        private static BsonObjectIdGenerator instance = new BsonObjectIdGenerator();
+        #endregion
+
+        #region constructors
+        /// <summary>
+        /// Initializes a new instance of the BsonObjectIdGenerator class.
+        /// </summary>
+        public BsonObjectIdGenerator() {
+        }
+        #endregion
+
+        #region public static properties
+        /// <summary>
+        /// Gets an instance of ObjectIdGenerator.
+        /// </summary>
+        public static BsonObjectIdGenerator Instance {
+            get { return instance; }
+        }
+        #endregion
+
+        #region public methods
+        /// <summary>
+        /// Generates an Id.
+        /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
+        /// <returns>An Id.</returns>
+        public object GenerateId(
+            object document
+        ) {
+            return BsonObjectId.GenerateNewId();
+        }
+
+        /// <summary>
+        /// Tests whether an Id is empty.
+        /// </summary>
+        /// <param name="id">The Id.</param>
+        /// <returns>True if the Id is empty.</returns>
+        public bool IsEmpty(
+            object id
+        ) {
+            return id == null || ((BsonValue) id).IsBsonNull || ((BsonObjectId) id).Value == ObjectId.Empty;
+        }
+        #endregion
+    }
+
+    /// <summary>
     /// Represents an Id generator for Guids using the COMB algorithm.
     /// </summary>
     public class CombGuidGenerator : IIdGenerator {
@@ -53,26 +103,28 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Generates an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>An Id.</returns>
-        public object GenerateId() {
-            var guidArray = Guid.NewGuid().ToByteArray();
+        public object GenerateId(
+            object document
+        ) {
+            var baseDate = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var now = DateTime.UtcNow;
+            var days = (ushort) (now - baseDate).TotalDays;
+            var milliseconds = (int) now.TimeOfDay.TotalMilliseconds;
 
-            var baseDate = new DateTime(1900, 1, 1);
-            var now = DateTime.Now;
+            // replace last 6 bytes of a new Guid with 2 bytes from days and 4 bytes from milliseconds
+            // see: The Cost of GUIDs as Primary Keys by Jimmy Nilson
+            // at: http://www.informit.com/articles/article.aspx?p=25862&seqNum=7
 
-            var days = new TimeSpan(now.Ticks - baseDate.Ticks);
-            var msecs = now.TimeOfDay;
-
-            var daysArray = BitConverter.GetBytes(days.Days);
-            var msecsArray = BitConverter.GetBytes((long) (msecs.TotalMilliseconds));
-
-            Array.Reverse(daysArray);
-            Array.Reverse(msecsArray);
-
-            Array.Copy(daysArray, daysArray.Length - 2, guidArray, guidArray.Length - 6, 2);
-            Array.Copy(msecsArray, msecsArray.Length - 4, guidArray, guidArray.Length - 4, 4);
-
-            return new Guid(guidArray);
+            var bytes = Guid.NewGuid().ToByteArray();
+            Array.Copy(BitConverter.GetBytes(days), 0, bytes, 10, 2);
+            Array.Copy(BitConverter.GetBytes(milliseconds), 0, bytes, 12, 4);
+            if (BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes, 10, 2);
+                Array.Reverse(bytes, 12, 4);
+            }
+            return new Guid(bytes);
         }
 
         /// <summary>
@@ -117,8 +169,11 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Generates an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>An Id.</returns>
-        public object GenerateId() {
+        public object GenerateId(
+            object document
+        ) {
             return Guid.NewGuid();
         }
 
@@ -164,8 +219,11 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Throws an exception because we can't generate an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>Nothing.</returns>
-        public object GenerateId() {
+        public object GenerateId(
+            object document
+        ) {
             throw new InvalidOperationException("Id cannot be null");
         }
 
@@ -211,8 +269,11 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Generates an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>An Id.</returns>
-        public object GenerateId() {
+        public object GenerateId(
+            object document
+        ) {
             return ObjectId.GenerateNewId();
         }
 
@@ -258,8 +319,11 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Generates an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>An Id.</returns>
-        public object GenerateId() {
+        public object GenerateId(
+            object document
+        ) {
             return ObjectId.GenerateNewId().ToString();
         }
 
@@ -293,8 +357,11 @@ namespace MongoDB.Bson.Serialization.IdGenerators {
         /// <summary>
         /// Throws an exception because we can't generate an Id.
         /// </summary>
+        /// <param name="document">The document for which an Id is being generated.</param>
         /// <returns>An Id.</returns>
-        public object GenerateId() {
+        public object GenerateId(
+            object document
+        ) {
             throw new InvalidOperationException("Id cannot be default value (all zeros)");
         }
 
