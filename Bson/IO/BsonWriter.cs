@@ -706,10 +706,10 @@ namespace MongoDB.Bson.IO {
                             throw new BsonSerializationException(message);
                     }
                 }
-                if (name.Contains('.')) {
+                /*if (name.Contains('.')) {
                     var message = string.Format("Element name '{0}' is not valid because it contains a '.'.", name);
                     throw new BsonSerializationException(message);
-                }
+                }*/
             }
         }
 
