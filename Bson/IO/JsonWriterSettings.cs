@@ -23,9 +23,9 @@ namespace MongoDB.Bson.IO {
     /// Represents settings for a JsonWriter.
     /// </summary>
     [Serializable]
-    public class JsonWriterSettings {
+    public class JsonWriterSettings : BsonWriterSettings {
         #region private static fields
-        private static JsonWriterSettings defaults = new JsonWriterSettings();
+        private static JsonWriterSettings defaults = null; // delay creation to pick up the latest default values
         #endregion
 
         #region private fields
@@ -35,7 +35,6 @@ namespace MongoDB.Bson.IO {
         private string indentChars = "  ";
         private string newLineChars = "\r\n";
         private JsonOutputMode outputMode = JsonOutputMode.Shell;
-        private bool isFrozen;
         #endregion
 
         #region constructors
@@ -50,6 +49,7 @@ namespace MongoDB.Bson.IO {
         /// </summary>
         /// <param name="closeOutput">Whether to close the output when the writer is closed.</param>
         /// <param name="encoding">The output Encoding.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         /// <param name="indent">Whether to indent the output.</param>
         /// <param name="indentChars">The indentation characters.</param>
         /// <param name="newLineChars">The new line characters.</param>
@@ -57,11 +57,13 @@ namespace MongoDB.Bson.IO {
         public JsonWriterSettings(
             bool closeOutput,
             Encoding encoding,
+            GuidRepresentation guidRepresentation,
             bool indent,
             string indentChars,
             string newLineChars,
             JsonOutputMode outputMode
-        ) {
+        ) 
+            : base(guidRepresentation) {
             this.closeOutput = closeOutput;
             this.encoding = encoding;
             this.indent = indent;
@@ -76,7 +78,12 @@ namespace MongoDB.Bson.IO {
         /// Gets or sets the default JsonWriterSettings.
         /// </summary>
         public static JsonWriterSettings Defaults {
-            get { return defaults; }
+            get {
+                if (defaults == null) {
+                    defaults = new JsonWriterSettings();
+                }
+                return defaults;
+            }
             set { defaults = value; }
         }
         #endregion
@@ -88,7 +95,7 @@ namespace MongoDB.Bson.IO {
         public bool CloseOutput {
             get { return closeOutput; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 closeOutput = value;
             }
         }
@@ -99,7 +106,7 @@ namespace MongoDB.Bson.IO {
         public Encoding Encoding {
             get { return encoding; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 encoding = value;
             }
         }
@@ -110,7 +117,7 @@ namespace MongoDB.Bson.IO {
         public bool Indent {
             get { return indent; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 indent = value;
             }
         }
@@ -121,16 +128,9 @@ namespace MongoDB.Bson.IO {
         public string IndentChars {
             get { return indentChars; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 indentChars = value;
             }
-        }
-
-        /// <summary>
-        /// Gets whether the settings are frozen.
-        /// </summary>
-        public bool IsFrozen {
-            get { return isFrozen; }
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace MongoDB.Bson.IO {
         public string NewLineChars {
             get { return newLineChars; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 newLineChars = value;
             }
         }
@@ -150,7 +150,7 @@ namespace MongoDB.Bson.IO {
         public JsonOutputMode OutputMode {
             get { return outputMode; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("JsonWriterSettings is frozen."); }
                 outputMode = value;
             }
         }
@@ -161,24 +161,26 @@ namespace MongoDB.Bson.IO {
         /// Creates a clone of the settings.
         /// </summary>
         /// <returns>A clone of the settings.</returns>
-        public JsonWriterSettings Clone() {
+        public new JsonWriterSettings Clone() {
+            return (JsonWriterSettings) CloneImplementation();
+        }
+        #endregion
+
+        #region protected methods
+        /// <summary>
+        /// Creates a clone of the settings.
+        /// </summary>
+        /// <returns>A clone of the settings.</returns>
+        protected override BsonWriterSettings CloneImplementation() {
             return new JsonWriterSettings(
                 closeOutput,
                 encoding,
+                guidRepresentation,
                 indent,
                 indentChars,
                 newLineChars,
                 outputMode
             );
-        }
-
-        /// <summary>
-        /// Freezes the settings.
-        /// </summary>
-        /// <returns>The settings.</returns>
-        public JsonWriterSettings Freeze() {
-            isFrozen = true;
-            return this;
         }
         #endregion
     }

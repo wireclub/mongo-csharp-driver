@@ -20,32 +20,14 @@ using System.Text;
 
 namespace MongoDB.Bson {
     /// <summary>
-    /// Represents the byte order to use when representing a Guid as a byte array.
-    /// </summary>
-    public enum GuidByteOrder {
-        /// <summary>
-        /// Use Microsoft's internal little endian format (this is the default for historical reasons, but is different from how the Java and other drivers store UUIDs).
-        /// </summary>
-        LittleEndian,
-        /// <summary>
-        /// Use the standard external high endian format (this is compatible with how the Java and other drivers store UUIDs).
-        /// </summary>
-        BigEndian
-    }
-
-    /// <summary>
     /// Represents BSON binary data.
     /// </summary>
     [Serializable]
     public class BsonBinaryData : BsonValue, IComparable<BsonBinaryData>, IEquatable<BsonBinaryData> {
-        #region private static fields
-        private static GuidByteOrder defaultGuidByteOrder = GuidByteOrder.LittleEndian;
-        #endregion
-
         #region private fields
         private byte[] bytes;
         private BsonBinarySubType subType;
-        private GuidByteOrder guidByteOrder; // only relevant if this instance was created from a Guid
+        private GuidRepresentation guidRepresentation; // only relevant if subType is UuidStandard or UuidLegacy
         #endregion
 
         #region constructors
@@ -56,9 +38,7 @@ namespace MongoDB.Bson {
         public BsonBinaryData(
             byte[] bytes
         )
-            : base(BsonType.Binary) {
-            this.bytes = bytes;
-            this.subType = BsonBinarySubType.Binary;
+            : this(bytes, BsonBinarySubType.Binary) {
         }
 
         /// <summary>
@@ -70,9 +50,40 @@ namespace MongoDB.Bson {
             byte[] bytes,
             BsonBinarySubType subType
         )
+            : this(bytes, subType, GuidRepresentation.Unspecified) {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonBinaryData class.
+        /// </summary>
+        /// <param name="bytes">The binary data.</param>
+        /// <param name="subType">The binary data subtype.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
+        public BsonBinaryData(
+            byte[] bytes,
+            BsonBinarySubType subType,
+            GuidRepresentation guidRepresentation
+        )
             : base(BsonType.Binary) {
+            if (subType == BsonBinarySubType.UuidStandard || subType == BsonBinarySubType.UuidLegacy) {
+                if (bytes.Length != 16) {
+                    var message = string.Format("Length must be 16, not {0}, when subType is {1}.", bytes.Length, subType);
+                    throw new ArgumentException(message);
+                }
+                var expectedSubType = (guidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy;
+                if (subType != expectedSubType) {
+                    var message = string.Format("SubType must be {0}, not {1}, when GuidRepresentation is {2}.", expectedSubType, subType, GuidRepresentation);
+                    throw new ArgumentException(message);
+                }
+            } else {
+                if (guidRepresentation != GuidRepresentation.Unspecified) {
+                    var message = string.Format("GuidRepresentation must be Unspecified, not {0}, when SubType is not UuidStandard or UuidLegacy.", guidRepresentation);
+                    throw new ArgumentException(message);
+                }
+            }
             this.bytes = bytes;
             this.subType = subType;
+            this.guidRepresentation = guidRepresentation;
         }
 
         /// <summary>
@@ -82,39 +93,23 @@ namespace MongoDB.Bson {
         public BsonBinaryData(
             Guid guid
         )
-            : this(guid, defaultGuidByteOrder) {
+            : this(guid, BsonDefaults.GuidRepresentation) {
         }
 
         /// <summary>
         /// Initializes a new instance of the BsonBinaryData class.
         /// </summary>
         /// <param name="guid">A Guid.</param>
-        /// <param name="byteOrder">The byte order to use when representing the Guid as a byte array.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         public BsonBinaryData(
             Guid guid,
-            GuidByteOrder byteOrder
+            GuidRepresentation guidRepresentation
         )
-            : base(BsonType.Binary) {
-            var bytes = guid.ToByteArray();
-            if (byteOrder == GuidByteOrder.BigEndian && BitConverter.IsLittleEndian) {
-                bytes = (byte[]) bytes.Clone(); // Clone is defensive in case Guid.ToByteArray returns an internal copy
-                Array.Reverse(bytes, 0, 4);
-                Array.Reverse(bytes, 4, 2);
-                Array.Reverse(bytes, 6, 2);
-            }
-            this.bytes = bytes;
-            this.subType = BsonBinarySubType.Uuid;
-            this.guidByteOrder = byteOrder;
-        }
-        #endregion
-
-        #region public static properties
-        /// <summary>
-        /// Gets or sets the default byte order to use when representing a Guid as a byte array.
-        /// </summary>
-        public static GuidByteOrder DefaultGuidByteOrder {
-            get { return defaultGuidByteOrder; }
-            set { defaultGuidByteOrder = value; }
+            : this(
+                GuidConverter.ToBytes(guid, guidRepresentation),
+                (guidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy,
+                guidRepresentation
+            ) {
         }
         #endregion
 
@@ -127,18 +122,18 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
-        /// Gets the byte order to use when representing a Guid as a byte array.
+        /// Gets the representation to use when representing the Guid as BSON binary data.
         /// </summary>
-        public GuidByteOrder GuidByteOrder {
-            get { return guidByteOrder; }
+        public GuidRepresentation GuidRepresentation {
+            get { return guidRepresentation; }
         }
 
         /// <summary>
-        /// Gets the BsonBinaryData as a Guid if the subtype is Uuid, otherwise null.
+        /// Gets the BsonBinaryData as a Guid if the subtype is UuidStandard or UuidLegacy, otherwise null.
         /// </summary>
         public override object RawValue {
             get {
-                if (bytes.Length == 16 && subType == BsonBinarySubType.Uuid) {
+                if (subType == BsonBinarySubType.UuidStandard || subType == BsonBinarySubType.UuidLegacy) {
                     return ToGuid();
                 } else {
                     return null;
@@ -174,7 +169,7 @@ namespace MongoDB.Bson {
         public static implicit operator BsonBinaryData(
             Guid value
         ) {
-            return new BsonBinaryData(value, defaultGuidByteOrder);
+            return new BsonBinaryData(value);
         }
         #endregion
 
@@ -210,25 +205,44 @@ namespace MongoDB.Bson {
         /// <summary>
         /// Creates a new BsonBinaryData.
         /// </summary>
-        /// <param name="guid">A Guid.</param>
-        /// <returns>A BsonBinaryData.</returns>
+        /// <param name="bytes">The binary data.</param>
+        /// <param name="subType">The binary data subtype.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
+        /// <returns>A BsonBinaryData or null.</returns>
         public static BsonBinaryData Create(
-            Guid guid
+            byte[] bytes,
+            BsonBinarySubType subType,
+            GuidRepresentation guidRepresentation
         ) {
-            return new BsonBinaryData(guid, defaultGuidByteOrder);
+            if (bytes != null) {
+                return new BsonBinaryData(bytes, subType, guidRepresentation);
+            } else {
+                return null;
+            }
         }
 
         /// <summary>
         /// Creates a new BsonBinaryData.
         /// </summary>
         /// <param name="guid">A Guid.</param>
-        /// <param name="byteOrder">The byte order to use when representing the Guid as a byte array.</param>
+        /// <returns>A BsonBinaryData.</returns>
+        public static BsonBinaryData Create(
+            Guid guid
+        ) {
+            return new BsonBinaryData(guid);
+        }
+
+        /// <summary>
+        /// Creates a new BsonBinaryData.
+        /// </summary>
+        /// <param name="guid">A Guid.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         /// <returns>A BsonBinaryData.</returns>
         public static BsonBinaryData Create(
             Guid guid,
-            GuidByteOrder byteOrder
+            GuidRepresentation guidRepresentation
         ) {
-            return new BsonBinaryData(guid, byteOrder);
+            return new BsonBinaryData(guid, guidRepresentation);
         }
 
         /// <summary>
@@ -291,6 +305,7 @@ namespace MongoDB.Bson {
             BsonBinaryData rhs
         ) {
             if (rhs == null) { return false; }
+            // note: guidRepresentation is not considered when testing for Equality
             return object.ReferenceEquals(this, rhs) || this.subType == rhs.subType && this.bytes.SequenceEqual(rhs.bytes);
         }
 
@@ -311,6 +326,7 @@ namespace MongoDB.Bson {
         /// <returns>The hash code.</returns>
         public override int GetHashCode() {
             // see Effective Java by Joshua Bloch
+            // note: guidRepresentation is not considered when computing the hash code
             int hash = 17;
             hash = 37 * hash + bsonType.GetHashCode();
             foreach (byte b in bytes) {
@@ -325,18 +341,25 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <returns>A Guid.</returns>
         public Guid ToGuid() {
-            if (subType == BsonBinarySubType.Uuid) {
-                var bytes = this.bytes;
-                if (guidByteOrder == GuidByteOrder.BigEndian && BitConverter.IsLittleEndian) {
-                    bytes = (byte[]) bytes.Clone(); // Clone is required in order to not alter our own byte array
-                    Array.Reverse(bytes, 0, 4);
-                    Array.Reverse(bytes, 4, 2);
-                    Array.Reverse(bytes, 6, 2);
-                }
-                return new Guid(bytes);
-            } else {
-                throw new InvalidOperationException("BinaryData subtype is not UUID");
+            return ToGuid(guidRepresentation);
+        }
+
+        /// <summary>
+        /// Converts this BsonBinaryData to a Guid.
+        /// </summary>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
+        /// <returns>A Guid.</returns>
+        public Guid ToGuid(
+            GuidRepresentation guidRepresentation
+        ) {
+            if (subType != BsonBinarySubType.UuidStandard && subType != BsonBinarySubType.UuidLegacy) {
+                var message = string.Format("SubType must be UuidStandard or UuidLegacy, not {0}.", subType);
+                throw new InvalidOperationException(message);
             }
+            if (guidRepresentation == GuidRepresentation.Unspecified) {
+                throw new ArgumentException("GuidRepresentation cannot be Unspecified.");
+            }
+            return GuidConverter.FromBytes(bytes, guidRepresentation);
         }
 
         /// <summary>

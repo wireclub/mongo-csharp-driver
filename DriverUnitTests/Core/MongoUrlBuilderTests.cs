@@ -19,6 +19,7 @@ using System.Linq;
 using System.Text;
 using NUnit.Framework;
 
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace MongoDB.DriverUnitTests {
@@ -34,6 +35,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual(MongoDefaults.ConnectTimeout, builder.ConnectTimeout);
             Assert.AreEqual(null, builder.DatabaseName);
             Assert.AreEqual(null, builder.DefaultCredentials);
+            Assert.AreEqual(MongoDefaults.GuidRepresentation, builder.GuidRepresentation);
             Assert.AreEqual(false, builder.IPv6);
             Assert.AreEqual(MongoDefaults.MaxConnectionIdleTime, builder.MaxConnectionIdleTime);
             Assert.AreEqual(MongoDefaults.MaxConnectionLifeTime, builder.MaxConnectionLifeTime);
@@ -274,6 +276,33 @@ namespace MongoDB.DriverUnitTests {
             connectionString = "mongodb://localhost/?ipv6=true";
             builder = new MongoUrlBuilder("mongodb://localhost") { IPv6 = true };
             Assert.AreEqual(true, builder.IPv6);
+            Assert.AreEqual(connectionString, builder.ToString());
+            Assert.AreEqual(connectionString, new MongoUrlBuilder(connectionString).ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationCSharpLegacy() {
+            var connectionString = "mongodb://localhost/?guids=CSharpLegacy";
+            var builder = new MongoUrlBuilder("mongodb://localhost") { GuidRepresentation = GuidRepresentation.CSharpLegacy };
+            Assert.AreEqual(GuidRepresentation.CSharpLegacy, builder.GuidRepresentation);
+            Assert.AreEqual("mongodb://localhost", builder.ToString());
+            Assert.AreEqual("mongodb://localhost", new MongoUrlBuilder(connectionString).ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationPythonLegacy() {
+            var connectionString = "mongodb://localhost/?guids=PythonLegacy";
+            var builder = new MongoUrlBuilder("mongodb://localhost") { GuidRepresentation = GuidRepresentation.PythonLegacy };
+            Assert.AreEqual(GuidRepresentation.PythonLegacy, builder.GuidRepresentation);
+            Assert.AreEqual(connectionString, builder.ToString());
+            Assert.AreEqual(connectionString, new MongoUrlBuilder(connectionString).ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationJavaLegacy() {
+            var connectionString = "mongodb://localhost/?guids=JavaLegacy";
+            var builder = new MongoUrlBuilder("mongodb://localhost") { GuidRepresentation = GuidRepresentation.JavaLegacy };
+            Assert.AreEqual(GuidRepresentation.JavaLegacy, builder.GuidRepresentation);
             Assert.AreEqual(connectionString, builder.ToString());
             Assert.AreEqual(connectionString, new MongoUrlBuilder(connectionString).ToString());
         }

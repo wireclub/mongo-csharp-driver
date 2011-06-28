@@ -23,16 +23,15 @@ namespace MongoDB.Bson.IO {
     /// Represents settings for a BsonBinaryWriter.
     /// </summary>
     [Serializable]
-    public class BsonBinaryWriterSettings {
+    public class BsonBinaryWriterSettings : BsonWriterSettings {
         #region private static fields
-        private static BsonBinaryWriterSettings defaults = new BsonBinaryWriterSettings();
+        private static BsonBinaryWriterSettings defaults = null; // delay creation to pick up the latest default values
         #endregion
 
         #region private fields
         private bool closeOutput = false;
         private bool fixOldBinarySubTypeOnOutput = true;
         private int maxDocumentSize = BsonDefaults.MaxDocumentSize;
-        private bool isFrozen;
         #endregion
 
         #region constructors
@@ -47,12 +46,15 @@ namespace MongoDB.Bson.IO {
         /// </summary>
         /// <param name="closeOutput">Whether to close the output stream when the writer is closed.</param>
         /// <param name="fixOldBinarySubTypeOnOutput">Whether to fix old binary data subtype on output.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         /// <param name="maxDocumentSize">The max document size.</param>
         public BsonBinaryWriterSettings(
             bool closeOutput,
             bool fixOldBinarySubTypeOnOutput,
+            GuidRepresentation guidRepresentation,
             int maxDocumentSize
-        ) {
+        )
+            : base(guidRepresentation) {
             this.closeOutput = closeOutput;
             this.fixOldBinarySubTypeOnOutput = fixOldBinarySubTypeOnOutput;
             this.maxDocumentSize = maxDocumentSize;
@@ -64,7 +66,12 @@ namespace MongoDB.Bson.IO {
         /// Gets or sets the default BsonBinaryWriter settings.
         /// </summary>
         public static BsonBinaryWriterSettings Defaults {
-            get { return defaults; }
+            get {
+                if (defaults == null) {
+                    defaults = new BsonBinaryWriterSettings();
+                }
+                return defaults;
+            }
             set { defaults = value; }
         }
         #endregion
@@ -76,7 +83,7 @@ namespace MongoDB.Bson.IO {
         public bool CloseOutput {
             get { return closeOutput; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen."); }
                 closeOutput = value;
             }
         }
@@ -87,16 +94,9 @@ namespace MongoDB.Bson.IO {
         public bool FixOldBinarySubTypeOnOutput {
             get { return fixOldBinarySubTypeOnOutput; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen."); }
                 fixOldBinarySubTypeOnOutput = value;
             }
-        }
-
-        /// <summary>
-        /// Gets whether the settings are frozen.
-        /// </summary>
-        public bool IsFrozen {
-            get { return isFrozen; }
         }
 
         /// <summary>
@@ -105,7 +105,7 @@ namespace MongoDB.Bson.IO {
         public int MaxDocumentSize {
             get { return maxDocumentSize; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryWriterSettings is frozen."); }
                 maxDocumentSize = value;
             }
         }
@@ -116,21 +116,23 @@ namespace MongoDB.Bson.IO {
         /// Creates a clone of the settings.
         /// </summary>
         /// <returns>A clone of the settings.</returns>
-        public BsonBinaryWriterSettings Clone() {
+        public new BsonBinaryWriterSettings Clone() {
+            return (BsonBinaryWriterSettings) CloneImplementation();
+        }
+        #endregion
+
+        #region protected methods
+        /// <summary>
+        /// Creates a clone of the settings.
+        /// </summary>
+        /// <returns>A clone of the settings.</returns>
+        protected override BsonWriterSettings CloneImplementation() {
             return new BsonBinaryWriterSettings(
                 closeOutput,
                 fixOldBinarySubTypeOnOutput,
+                guidRepresentation,
                 maxDocumentSize
             );
-        }
-
-        /// <summary>
-        /// Freezes the settings.
-        /// </summary>
-        /// <returns>The settings.</returns>
-        public BsonBinaryWriterSettings Freeze() {
-            isFrozen = true;
-            return this;
         }
         #endregion
     }

@@ -81,7 +81,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                 case BsonType.String:
                     return XmlConvert.ToBoolean(bsonReader.ReadString().ToLower());
                 default:
-                    var message = string.Format("Cannot deserialize Boolean from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize Boolean from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -118,7 +118,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     bsonWriter.WriteString(XmlConvert.ToString(boolValue));
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'Boolean'", representation);
+                    var message = string.Format("'{0}' is not a valid representation for type Boolean.", representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -195,13 +195,13 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     }
                     break;
                 default:
-                    var message = string.Format("Cannot deserialize DateTime from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize DateTime from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
 
             if (dateTimeOptions.DateOnly) {
                 if (value.TimeOfDay != TimeSpan.Zero) {
-                    throw new FileFormatException("TimeOfDay component for DateOnly DateTime value is not zero");
+                    throw new FileFormatException("TimeOfDay component for DateOnly DateTime value is not zero.");
                 }
                 value = DateTime.SpecifyKind(value, dateTimeOptions.Kind); // not ToLocalTime or ToUniversalTime!
             } else {
@@ -238,7 +238,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
             DateTime utcDateTime;
             if (dateTimeOptions.DateOnly) {
                 if (dateTime.TimeOfDay != TimeSpan.Zero) {
-                    throw new BsonSerializationException("TimeOfDay component is not zero");
+                    throw new BsonSerializationException("TimeOfDay component is not zero.");
                 }
                 utcDateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc); // not ToLocalTime
             } else {
@@ -275,7 +275,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     }
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'DateTime'", dateTimeOptions.Representation);
+                    var message = string.Format("'{0}' is not a valid representation for type DateTime.", dateTimeOptions.Representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -333,7 +333,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                 case BsonType.String:
                     return XmlConvert.ToDouble(bsonReader.ReadString());
                 default:
-                    var message = string.Format("Cannot deserialize Double from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize Double from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -367,7 +367,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     bsonWriter.WriteString(doubleValue.ToString("R", NumberFormatInfo.InvariantInfo));
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'Double'", representationOptions.Representation);
+                    var message = string.Format("'{0}' is not a valid representation for type Double.", representationOptions.Representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -412,34 +412,35 @@ namespace MongoDB.Bson.Serialization.Serializers {
             Type nominalType,
             IBsonSerializationOptions options
         ) {
-            var guidSerializationOptions = options as GuidSerializationOptions;
-            if (guidSerializationOptions == null) {
-                guidSerializationOptions = GuidSerializationOptions.Defaults;
-            }
-
             var bsonType = bsonReader.CurrentBsonType;
+            string message;
             switch (bsonType) {
                 case BsonType.Binary:
                     byte[] bytes;
                     BsonBinarySubType subType;
                     bsonReader.ReadBinaryData(out bytes, out subType);
                     if (bytes.Length != 16) {
-                        throw new FileFormatException("BinaryData length is not 16");
+                        message = string.Format("Expected length to be 16, not {0}.", bytes.Length);
+                        throw new FileFormatException(message);
                     }
-                    if (subType != BsonBinarySubType.Uuid) {
-                        throw new FileFormatException("BinaryData sub type is not Uuid");
+                    if (subType != BsonBinarySubType.UuidStandard && subType != BsonBinarySubType.UuidLegacy) {
+                        message = string.Format("Expected binary sub type to be UuidStandard or UuidLegacy, not {0}.", subType);
+                        throw new FileFormatException(message);
                     }
-                    if (guidSerializationOptions.ByteOrder == GuidByteOrder.BigEndian && BitConverter.IsLittleEndian) {
-                        // we don't need to Clone bytes this time because we know we own this byte array
-                        Array.Reverse(bytes, 0, 4);
-                        Array.Reverse(bytes, 4, 2);
-                        Array.Reverse(bytes, 6, 2);
+                    var readerGuidRepresentation = bsonReader.Settings.GuidRepresentation;
+                    if (readerGuidRepresentation == GuidRepresentation.Unspecified) {
+                        throw new BsonSerializationException("GuidSerializer cannot deserialize a Guid when GuidRepresentation is Unspecified.");
                     }
-                    return new Guid(bytes);
+                    var expectedSubType = (readerGuidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy;
+                    if (subType != expectedSubType) {
+                        message = string.Format("Expected binary sub type {0}, not {1}, for GuidRepresentation {2}.", expectedSubType, subType, readerGuidRepresentation);
+                        throw new FileFormatException(message);
+                    }
+                    return GuidConverter.FromBytes(bytes, readerGuidRepresentation);
                 case BsonType.String:
                     return new Guid(bsonReader.ReadString());
                 default:
-                    var message = string.Format("Cannot deserialize Guid from BsonType: {0}", bsonType);
+                    message = string.Format("Cannot deserialize Guid from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -458,33 +459,23 @@ namespace MongoDB.Bson.Serialization.Serializers {
             IBsonSerializationOptions options
         ) {
             var guid = (Guid) value;
-            var guidSerializationOptions = options as GuidSerializationOptions;
-            if (guidSerializationOptions == null) {
-                var representationOptions = options as RepresentationSerializationOptions;
-                if (representationOptions != null) {
-                    guidSerializationOptions = new GuidSerializationOptions(representationOptions.Representation);
-                }
-            }
-            if (guidSerializationOptions == null) {
-                guidSerializationOptions = GuidSerializationOptions.Defaults;
-            }
+            var representation = (options == null) ? BsonType.Binary : ((RepresentationSerializationOptions) options).Representation;
 
-            switch (guidSerializationOptions.Representation) {
+            switch (representation) {
                 case BsonType.Binary:
-                    var bytes = guid.ToByteArray();
-                    if (guidSerializationOptions.ByteOrder == GuidByteOrder.BigEndian && BitConverter.IsLittleEndian) {
-                        bytes = (byte[]) bytes.Clone(); // Clone is defensive in case Guid.ToByteArray returns an internal copy
-                        Array.Reverse(bytes, 0, 4);
-                        Array.Reverse(bytes, 4, 2);
-                        Array.Reverse(bytes, 6, 2);
+                    var writerGuidRepresentation = bsonWriter.Settings.GuidRepresentation;
+                    if (writerGuidRepresentation == GuidRepresentation.Unspecified) {
+                        throw new BsonSerializationException("GuidSerializer cannot serialize a Guid when GuidRepresentation is Unspecified.");
                     }
-                    bsonWriter.WriteBinaryData(bytes, BsonBinarySubType.Uuid);
+                    var bytes = GuidConverter.ToBytes(guid, writerGuidRepresentation);
+                    var subType = (writerGuidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy;
+                    bsonWriter.WriteBinaryData(bytes, subType, writerGuidRepresentation);
                     break;
                 case BsonType.String:
                     bsonWriter.WriteString(guid.ToString());
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'Guid'", guidSerializationOptions.Representation);
+                    var message = string.Format("'{0}' is not a valid Guid representation.", representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -542,7 +533,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                 case BsonType.String:
                     return XmlConvert.ToInt32(bsonReader.ReadString());
                 default:
-                    var message = string.Format("Cannot deserialize Int32 from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize Int32 from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -576,7 +567,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     bsonWriter.WriteString(XmlConvert.ToString(int32Value));
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'Int32'", representationOptions.Representation);
+                    var message = string.Format("'{0}' is not a valid Int32 value.", representationOptions.Representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -634,7 +625,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                 case BsonType.String:
                     return XmlConvert.ToInt64(bsonReader.ReadString());
                 default:
-                    var message = string.Format("Cannot deserialize Int64 from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize Int64 from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -668,7 +659,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     bsonWriter.WriteString(XmlConvert.ToString(int64Value));
                     break;
                 default:
-                    var message = string.Format("'{0}' is not a valid representation for type 'Int64'", representationOptions.Representation);
+                    var message = string.Format("'{0}' is not a valid Int64 value.", representationOptions.Representation);
                     throw new BsonSerializationException(message);
             }
         }
@@ -725,7 +716,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                 case BsonType.String:
                     return ObjectId.Parse(bsonReader.ReadString());
                 default:
-                    var message = string.Format("Cannot deserialize ObjectId from BsonType: {0}", bsonType);
+                    var message = string.Format("Cannot deserialize ObjectId from BsonType {0}.", bsonType);
                     throw new FileFormatException(message);
             }
         }
@@ -753,7 +744,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     bsonWriter.WriteString(objectId.ToString());
                     break;
                 default:
-                    throw new BsonInternalException("Unexpected representation");
+                    throw new BsonInternalException("Unexpected representation.");
             }
         }
         #endregion
@@ -815,7 +806,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                     case BsonType.Symbol:
                         return bsonReader.ReadSymbol();
                     default:
-                        var message = string.Format("Cannot deserialize string from BsonType: {0}", bsonType);
+                        var message = string.Format("Cannot deserialize string from BsonType {0}.", bsonType);
                         throw new FileFormatException(message);
                 }
             }
@@ -851,7 +842,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
                         bsonWriter.WriteSymbol(stringValue);
                         break;
                     default:
-                        throw new BsonInternalException("Unexpected representation");
+                        throw new BsonInternalException("Unexpected representation.");
                 }
             }
         }

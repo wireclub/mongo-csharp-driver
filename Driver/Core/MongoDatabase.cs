@@ -55,10 +55,12 @@ namespace MongoDB.Driver {
             this.settings = settings.Freeze();
             this.name = settings.DatabaseName;
 
-            // make sure commands get routed to the primary server by using slaveOk false
             var commandCollectionSettings = CreateCollectionSettings<BsonDocument>("$cmd");
             commandCollectionSettings.AssignIdOnInsert = false;
-            commandCollectionSettings.SlaveOk = false;
+            if (server.Settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                // make sure commands get routed to the primary server by using slaveOk false
+                commandCollectionSettings.SlaveOk = false;
+            }
             commandCollection = GetCollection(commandCollectionSettings);
         }
         #endregion
@@ -96,7 +98,7 @@ namespace MongoDB.Driver {
             string databaseName
         ) {
             if (databaseName == null) {
-                throw new ArgumentException("Database name is missing");
+                throw new ArgumentException("Database name is missing.");
             }
             var server = MongoServer.Create(serverSettings);
             return server.GetDatabase(databaseName);
@@ -256,14 +258,25 @@ namespace MongoDB.Driver {
             MongoCredentials credentials,
             bool readOnly
         ) {
+            var user = new MongoUser(credentials, readOnly);
+            AddUser(user);
+        }
+
+        /// <summary>
+        /// Adds a user to this database.
+        /// </summary>
+        /// <param name="user">The user.</param>
+        public virtual void AddUser(
+            MongoUser user
+        ) {
             var users = GetCollection("system.users");
-            var user = users.FindOne(Query.EQ("user", credentials.Username));
-            if (user == null) {
-                user = new BsonDocument("user", credentials.Username);
+            var document = users.FindOne(Query.EQ("user", user.Username));
+            if (document == null) {
+                document = new BsonDocument("user", user.Username);
             }
-            user["readOnly"] = readOnly;
-            user["pwd"] = MongoUtils.Hash(credentials.Username + ":mongo:" + credentials.Password);
-            users.Save(user);
+            document["readOnly"] = user.IsReadOnly;
+            document["pwd"] = user.PasswordHash;
+            users.Save(document);
         }
 
         /// <summary>
@@ -275,6 +288,18 @@ namespace MongoDB.Driver {
             string collectionName
         ) {
             return GetCollectionNames().Contains(collectionName);
+        }
+
+        /// <summary>
+        /// Creates a collection. MongoDB creates collections automatically when they are first used, so
+        /// this command is mainly here for frameworks.
+        /// </summary>
+        /// <param name="collectionName">The name of the collection.</param>
+        /// <returns>A CommandResult.</returns>
+        public virtual CommandResult CreateCollection(
+            string collectionName
+        ) {
+            return CreateCollection(collectionName, null);
         }
 
         /// <summary>
@@ -308,6 +333,7 @@ namespace MongoDB.Driver {
             return new MongoCollectionSettings<TDefaultDocument>(
                 collectionName,
                 MongoDefaults.AssignIdOnInsert,
+                settings.GuidRepresentation,
                 settings.SafeMode,
                 settings.SlaveOk
             );
@@ -326,11 +352,12 @@ namespace MongoDB.Driver {
         ) {
             var settingsDefinition = typeof(MongoCollectionSettings<>);
             var settingsType = settingsDefinition.MakeGenericType(defaultDocumentType);
-            var constructorInfo = settingsType.GetConstructor(new Type[] { typeof(string), typeof(bool), typeof(SafeMode), typeof(bool) });
+            var constructorInfo = settingsType.GetConstructor(new Type[] { typeof(string), typeof(bool), typeof(GuidRepresentation), typeof(SafeMode), typeof(bool) });
             return (MongoCollectionSettings) constructorInfo.Invoke(
                 new object[] {
                     collectionName,
                     MongoDefaults.AssignIdOnInsert,
+                    settings.GuidRepresentation,
                     settings.SafeMode,
                     settings.SlaveOk
                 }
@@ -352,10 +379,38 @@ namespace MongoDB.Driver {
         public virtual CommandResult DropCollection(
             string collectionName
         ) {
-            var command = new CommandDocument("drop", collectionName);
+            try {
+                var command = new CommandDocument("drop", collectionName);
+                var result = RunCommand(command);
+                server.IndexCache.Reset(name, collectionName);
+                return result;
+            } catch (MongoCommandException ex) {
+                if (ex.CommandResult.ErrorMessage == "ns not found") {
+                    return ex.CommandResult;
+                }
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Evaluates JavaScript code at the server.
+        /// </summary>
+        /// <param name="code">The code to evaluate.</param>
+        /// <param name="args">Optional arguments (only used when the code is a function with parameters).</param>
+        /// <param name="nolock">Whether to run without taking a write lock.</param>
+        /// <returns>The result of evaluating the code.</returns>
+        public virtual BsonValue Eval(
+            BsonJavaScript code,
+            object[] args,
+            bool nolock
+        ) {
+            var command = new CommandDocument {
+                { "$eval", code },
+                { "args", BsonArray.Create(args), args != null && args.Length > 0 },
+                { "nolock", true, nolock }
+            };
             var result = RunCommand(command);
-            server.IndexCache.Reset(name, collectionName);
-            return result;
+            return result.Response["retval"];
         }
 
         /// <summary>
@@ -365,15 +420,10 @@ namespace MongoDB.Driver {
         /// <param name="args">Optional arguments (only used when the code is a function with parameters).</param>
         /// <returns>The result of evaluating the code.</returns>
         public virtual BsonValue Eval(
-            string code,
+            BsonJavaScript code,
             params object[] args
         ) {
-            var command = new CommandDocument {
-                { "$eval", code },
-                { "args", new BsonArray(args) }
-            };
-            var result = RunCommand(command);
-            return result.Response["retval"];
+            return Eval(code, args, false); // nolock = false
         }
 
         /// <summary>
@@ -416,6 +466,43 @@ namespace MongoDB.Driver {
             var collection = GetCollection(dbRef.CollectionName);
             var query = Query.EQ("_id", BsonValue.Create(dbRef.Id));
             return collection.FindOneAs(documentType, query);
+        }
+
+        /// <summary>
+        /// Finds all users of this database.
+        /// </summary>
+        /// <returns>An array of users.</returns>
+        public virtual MongoUser[] FindAllUsers() {
+            var result = new List<MongoUser>();
+            var users = GetCollection("system.users");
+            foreach (var document in users.FindAll()) {
+                var username = document["user"].AsString;
+                var passwordHash = document["pwd"].AsString;
+                var readOnly = document["readOnly"].ToBoolean();
+                var user = new MongoUser(username, passwordHash, readOnly);
+                result.Add(user);
+            };
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Finds a user of this database.
+        /// </summary>
+        /// <param name="username">The username.</param>
+        /// <returns>The user.</returns>
+        public virtual MongoUser FindUser(
+            string username
+        ) {
+            var users = GetCollection("system.users");
+            var query = Query.EQ("user", username);
+            var document = users.FindOne(query);
+            if (document != null) {
+                var passwordHash = document["pwd"].AsString;
+                var readOnly = document["readOnly"].ToBoolean();
+                return new MongoUser(username, passwordHash, readOnly);
+            } else {
+                return null;
+            }
         }
 
         /// <summary>
@@ -617,6 +704,16 @@ namespace MongoDB.Driver {
         /// <summary>
         /// Removes a user from this database.
         /// </summary>
+        /// <param name="user">The user to remove.</param>
+        public virtual void RemoveUser(
+            MongoUser user
+        ) {
+            RemoveUser(user.Username);
+        }
+
+        /// <summary>
+        /// Removes a user from this database.
+        /// </summary>
         /// <param name="username">The username to remove.</param>
         public virtual void RemoveUser(
             string username
@@ -728,7 +825,7 @@ namespace MongoDB.Driver {
             var response = CommandCollection.FindOne(command);
             if (response == null) {
                 var commandName = command.ToBsonDocument().GetElement(0).Name;
-                var message = string.Format("Command '{0}' failed: no response returned", commandName);
+                var message = string.Format("Command '{0}' failed. No response returned.", commandName);
                 throw new MongoCommandException(message);
             }
             var commandResult = (CommandResult) Activator.CreateInstance(commandResultType); // constructor can't have arguments
@@ -773,13 +870,13 @@ namespace MongoDB.Driver {
                 throw new ArgumentNullException("name");
             }
             if (name == "") {
-                throw new ArgumentException("Database name is empty");
+                throw new ArgumentException("Database name is empty.");
             }
             if (name.IndexOfAny(new char[] { '\0', ' ', '.', '$', '/', '\\' }) != -1) {
-                throw new ArgumentException("Database name cannot contain the following special characters: null, space, period, $, / or \\");
+                throw new ArgumentException("Database name cannot contain the following special characters: null, space, period, $, / or \\.");
             }
             if (Encoding.UTF8.GetBytes(name).Length > 64) {
-                throw new ArgumentException("Database name cannot exceed 64 bytes (after encoding to UTF8)");
+                throw new ArgumentException("Database name cannot exceed 64 bytes (after encoding to UTF8).");
             }
         }
         #endregion

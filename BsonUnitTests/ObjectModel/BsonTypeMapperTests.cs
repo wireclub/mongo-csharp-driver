@@ -310,10 +310,10 @@ namespace MongoDB.BsonUnitTests {
             var value = Guid.NewGuid();
             var bsonValue = (BsonBinaryData) BsonTypeMapper.MapToBsonValue(value);
             Assert.IsTrue(value.ToByteArray().SequenceEqual(bsonValue.Bytes));
-            Assert.AreEqual(BsonBinarySubType.Uuid, bsonValue.SubType);
+            Assert.AreEqual(BsonBinarySubType.UuidLegacy, bsonValue.SubType);
             var bsonBinary = (BsonBinaryData) BsonTypeMapper.MapToBsonValue(value, BsonType.Binary);
             Assert.IsTrue(value.ToByteArray().SequenceEqual(bsonBinary.Bytes));
-            Assert.AreEqual(BsonBinarySubType.Uuid, bsonBinary.SubType);
+            Assert.AreEqual(BsonBinarySubType.UuidLegacy, bsonBinary.SubType);
         }
 
         [Test]
@@ -553,6 +553,34 @@ namespace MongoDB.BsonUnitTests {
             Assert.AreEqual((long) (ulong) value, bsonValue.Value);
             var bsonInt64 = (BsonInt64) BsonTypeMapper.MapToBsonValue(value, BsonType.Int64);
             Assert.AreEqual((long) (ulong) value, bsonInt64.Value);
+        }
+
+        // used by TestCustomTypeMapper
+        public struct CustomDateTime {
+            static CustomDateTime() {
+                BsonTypeMapper.RegisterCustomTypeMapper(typeof(CustomDateTime), new CustomDateTimeMapper());
+            }
+
+            public DateTime DateTime { get; set; } // note: static constructor doesn't get called if this is a field instead of a property!?
+        }
+
+        public class CustomDateTimeMapper : ICustomBsonTypeMapper {
+            public bool TryMapToBsonValue(
+                object value,
+                out BsonValue bsonValue
+            ) {
+                bsonValue = new BsonDateTime(((CustomDateTime) value).DateTime);
+                return true;
+            }
+        }
+
+        [Test]
+        public void TestCustomTypeMapper() {
+            var utcNow = DateTime.UtcNow;
+            var customDateTime = new CustomDateTime { DateTime = utcNow };
+            BsonValue bsonValue;
+            Assert.AreEqual(true, BsonTypeMapper.TryMapToBsonValue(customDateTime, out bsonValue));
+            Assert.AreEqual(utcNow, bsonValue.AsDateTime);
         }
     }
 }
