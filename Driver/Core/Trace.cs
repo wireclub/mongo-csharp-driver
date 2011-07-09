@@ -12,6 +12,7 @@ namespace MongoDB.Driver.Core
 	public static class Trace
 	{
 		public static bool EnableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "false");
+		public static bool EnableTracingAll = bool.Parse(ConfigurationManager.AppSettings["mongodb.traceall"] ?? "false");
 
 		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
 		{
@@ -29,7 +30,7 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + stopwatch.ElapsedMilliseconds;
             }
 
-            if (EnableTracing && stopwatch.ElapsedMilliseconds > 20)
+            if (EnableTracing && (stopwatch.ElapsedMilliseconds > 20 || EnableTracingAll))
             {
                 var q = query as QueryDocument;
                 if (q != null)
