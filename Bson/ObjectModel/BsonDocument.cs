@@ -98,7 +98,7 @@ namespace MongoDB.Bson {
         /// Using this constructor to create a <c>BsonDocument</c> with PowerShell's Hashtable notation:
         /// <code lang="powershell">
         /// # We assume that the driver is installed via the MSI.
-        /// [string] $mongoDriverPath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\.NETFramework\v3.5\AssemblyFoldersEx\MongoDB CSharpDriver 1.0").'(default)';
+        /// [string] $mongoDriverPath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\.NETFramework\v3.5\AssemblyFoldersEx\MongoDB CSharpDriver 1.1").'(default)';
         /// Add-Type -Path "$($mongoDriverPath)\MongoDB.Bson.dll";
         /// [MongoDB.Bson.BsonDocument] $doc = @{
         ///     "_id" = [MongoDB.Bson.ObjectId]::GenerateNewId();
@@ -306,7 +306,7 @@ namespace MongoDB.Bson {
                 if (indexes.TryGetValue(name, out index)) {
                     return elements[index].Value;
                 } else {
-                    string message = string.Format("Element \"{0}\" not found", name);
+                    string message = string.Format("Element '{0}' not found.", name);
                     throw new KeyNotFoundException(message);
                 }
             }
@@ -431,7 +431,7 @@ namespace MongoDB.Bson {
                 bool found;
                 int index;
                 if ((found = indexes.TryGetValue(element.Name, out index)) && !allowDuplicateNames) {
-                    var message = string.Format("Duplicate element name: '{0}'.", element.Name);
+                    var message = string.Format("Duplicate element name '{0}'.", element.Name);
                     throw new InvalidOperationException(message);
                 } else {
                     elements.Add(element);
@@ -747,7 +747,7 @@ namespace MongoDB.Bson {
             if (indexes.TryGetValue(name, out index)) {
                 return elements[index];
             } else {
-                string message = string.Format("Element \"{0}\" not found", name);
+                string message = string.Format("Element '{0}' not found.", name);
                 throw new KeyNotFoundException(message);
             }
         }
@@ -820,7 +820,8 @@ namespace MongoDB.Bson {
         ) {
             if (element != null) {
                 if (indexes.ContainsKey(element.Name) && !allowDuplicateNames) {
-                    throw new InvalidOperationException("Duplicate element names not allowed");
+                    var message = string.Format("Duplicate element name '{0}' not allowed.", element.Name);
+                    throw new InvalidOperationException(message);
                 } else {
                     elements.Insert(index, element);
                     RebuildDictionary();

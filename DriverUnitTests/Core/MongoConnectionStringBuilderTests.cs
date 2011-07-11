@@ -19,6 +19,7 @@ using System.Linq;
 using System.Text;
 using NUnit.Framework;
 
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace MongoDB.DriverUnitTests {
@@ -36,6 +37,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.IsNull(builder.DatabaseName);
             Assert.AreEqual(ConnectionMode.Direct, builder.ConnectionMode);
             Assert.AreEqual(MongoDefaults.ConnectTimeout, builder.ConnectTimeout);
+            Assert.AreEqual(MongoDefaults.GuidRepresentation, builder.GuidRepresentation);
             Assert.AreEqual(false, builder.IPv6);
             Assert.AreEqual(MongoDefaults.MaxConnectionIdleTime, builder.MaxConnectionIdleTime);
             Assert.AreEqual(MongoDefaults.MaxConnectionLifeTime, builder.MaxConnectionLifeTime);
@@ -197,6 +199,30 @@ namespace MongoDB.DriverUnitTests {
             connectionString = "server=localhost;connectTimeout=123h";
             builder = new MongoConnectionStringBuilder(connectionString);
             Assert.AreEqual(TimeSpan.FromHours(123), builder.ConnectTimeout);
+            Assert.AreEqual(connectionString, builder.ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationCSharpLegacy() {
+            string connectionString = "server=localhost;guids=CSharpLegacy";
+            var builder = new MongoConnectionStringBuilder(connectionString);
+            Assert.AreEqual(GuidRepresentation.CSharpLegacy, builder.GuidRepresentation);
+            Assert.AreEqual(connectionString, builder.ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationPythonLegacy() {
+            string connectionString = "server=localhost;guids=PythonLegacy";
+            var builder = new MongoConnectionStringBuilder(connectionString);
+            Assert.AreEqual(GuidRepresentation.PythonLegacy, builder.GuidRepresentation);
+            Assert.AreEqual(connectionString, builder.ToString());
+        }
+
+        [Test]
+        public void TestGuidRepresentationJavaLegacy() {
+            string connectionString = "server=localhost;guids=JavaLegacy";
+            var builder = new MongoConnectionStringBuilder(connectionString);
+            Assert.AreEqual(GuidRepresentation.JavaLegacy, builder.GuidRepresentation);
             Assert.AreEqual(connectionString, builder.ToString());
         }
 
@@ -373,7 +399,7 @@ namespace MongoDB.DriverUnitTests {
 
         [Test]
         public void TestAll() {
-            string connectionString = "server=localhost;connect=replicaSet;replicaSet=name;slaveOk=true;safe=true;fsync=true;w=2;wtimeout=2s";
+            string connectionString = "server=localhost;connect=replicaSet;replicaSet=name;slaveOk=true;safe=true;fsync=true;w=2;wtimeout=2s;guids=PythonLegacy";
             var builder = new MongoConnectionStringBuilder(connectionString);
             Assert.IsNull(builder.Username);
             Assert.IsNull(builder.Password);
@@ -383,6 +409,7 @@ namespace MongoDB.DriverUnitTests {
             Assert.AreEqual(null, builder.DatabaseName);
             Assert.AreEqual(ConnectionMode.ReplicaSet, builder.ConnectionMode);
             Assert.AreEqual("name", builder.ReplicaSetName);
+            Assert.AreEqual(GuidRepresentation.PythonLegacy, builder.GuidRepresentation);
             Assert.AreEqual(SafeMode.Create(true, true, 2, TimeSpan.FromSeconds(2)), builder.SafeMode);
             Assert.AreEqual(true, builder.SlaveOk);
             Assert.AreEqual(connectionString, builder.ToString());

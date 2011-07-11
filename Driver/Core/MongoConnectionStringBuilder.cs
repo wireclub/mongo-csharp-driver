@@ -21,6 +21,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 
+using MongoDB.Bson;
 using MongoDB.Driver.Internal;
 
 namespace MongoDB.Driver {
@@ -36,6 +37,7 @@ namespace MongoDB.Driver {
             { "connecttimeoutms", "connectTimeoutMS" },
             { "database", "database" },
             { "fsync", "fsync" },
+            { "guids", "guids" },
             { "maxidletime", "maxIdleTime" },
             { "maxlifetime", "maxLifeTime" },
             { "maxpoolsize", "maxPoolSize" },
@@ -64,6 +66,7 @@ namespace MongoDB.Driver {
         private ConnectionMode connectionMode;
         private TimeSpan connectTimeout;
         private string databaseName;
+        private GuidRepresentation guidRepresentation;
         private bool ipv6;
         private TimeSpan maxConnectionIdleTime;
         private TimeSpan maxConnectionLifeTime;
@@ -144,6 +147,16 @@ namespace MongoDB.Driver {
             get { return databaseName; }
             set {
                 base["database"] = databaseName = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the representation for Guids.
+        /// </summary>
+        public GuidRepresentation GuidRepresentation {
+            get { return guidRepresentation; }
+            set {
+                base["guids"] = guidRepresentation = value;
             }
         }
 
@@ -378,6 +391,9 @@ namespace MongoDB.Driver {
                         wtimeout = (safeMode != null) ? safeMode.WTimeout : TimeSpan.Zero;
                         SafeMode = SafeMode.Create(true, fsync, w, wtimeout);
                         break;
+                    case "guids":
+                        GuidRepresentation = (GuidRepresentation) Enum.Parse(typeof(GuidRepresentation), (string) value, true); // ignoreCase
+                        break;
                     case "ipv6":
                         IPv6 = Convert.ToBoolean(value);
                         break;
@@ -451,7 +467,7 @@ namespace MongoDB.Driver {
                         SafeMode = SafeMode.Create(true, fsync, w, wtimeout);
                         break;
                     default:
-                        var message = string.Format("Invalid keyword: {0}", keyword);
+                        var message = string.Format("Invalid keyword '{0}'.", keyword);
                         throw new ArgumentException(message);
                 }
             }
@@ -487,6 +503,7 @@ namespace MongoDB.Driver {
                 connectionMode,
                 connectTimeout,
                 MongoCredentials.Create(username, password), // defaultCredentials
+                guidRepresentation,
                 ipv6,
                 maxConnectionIdleTime,
                 maxConnectionLifeTime,
@@ -532,6 +549,7 @@ namespace MongoDB.Driver {
         	connectionMode = ConnectionMode.Direct;
         	connectTimeout = MongoDefaults.ConnectTimeout;
         	databaseName = null;
+            guidRepresentation = MongoDefaults.GuidRepresentation;
             ipv6 = false;
         	maxConnectionIdleTime = MongoDefaults.MaxConnectionIdleTime;
         	maxConnectionLifeTime = MongoDefaults.MaxConnectionLifeTime;

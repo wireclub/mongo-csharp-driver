@@ -53,7 +53,7 @@ namespace MongoDB.DriverOnlineTests {
             var collectionName = "testcreatecollection";
             Assert.IsFalse(database.CollectionExists(collectionName));
 
-            database.CreateCollection(collectionName, CollectionOptions.Null);
+            database.CreateCollection(collectionName);
             Assert.IsTrue(database.CollectionExists(collectionName));
         }
 
@@ -67,6 +67,34 @@ namespace MongoDB.DriverOnlineTests {
 
             database.DropCollection(collectionName);
             Assert.IsFalse(database.CollectionExists(collectionName));
+        }
+
+        [Test]
+        public void TestEvalNoArgs() {
+            var code = "function() { return 1; }";
+            var result = database.Eval(code);
+            Assert.AreEqual(1, result.ToInt32());
+        }
+
+        [Test]
+        public void TestEvalNoArgsNoLock() {
+            var code = "function() { return 1; }";
+            var result = database.Eval(code, null, true);
+            Assert.AreEqual(1, result.ToInt32());
+        }
+
+        [Test]
+        public void TestEvalWithArgs() {
+            var code = "function(x, y) { return x / y; }";
+            var result = database.Eval(code, 6, 2);
+            Assert.AreEqual(3, result.ToInt32());
+        }
+
+        [Test]
+        public void TestEvalWithArgsNoLock() {
+            var code = "function(x, y) { return x / y; }";
+            var result = database.Eval(code, new object[] { 6, 2 }, true);
+            Assert.AreEqual(3, result.ToInt32());
         }
 
         [Test]
@@ -132,6 +160,28 @@ namespace MongoDB.DriverOnlineTests {
             database.RenameCollection(collectionName1, collectionName2);
             Assert.IsFalse(database.CollectionExists(collectionName1));
             Assert.IsTrue(database.CollectionExists(collectionName2));
+        }
+
+        [Test]
+        public void TestUserMethods() {
+            var collection = database["system.users"];
+            collection.RemoveAll();
+            database.AddUser(new MongoCredentials("username", "password"), true);
+            Assert.AreEqual(1, collection.Count());
+
+            var user = database.FindUser("username");
+            Assert.AreEqual("username", user.Username);
+            Assert.AreEqual(MongoUtils.Hash("username:mongo:password"), user.PasswordHash);
+            Assert.AreEqual(true, user.IsReadOnly);
+
+            var users = database.FindAllUsers();
+            Assert.AreEqual(1, users.Length);
+            Assert.AreEqual("username", users[0].Username);
+            Assert.AreEqual(MongoUtils.Hash("username:mongo:password"), users[0].PasswordHash);
+            Assert.AreEqual(true, users[0].IsReadOnly);
+
+            database.RemoveUser(user);
+            Assert.AreEqual(0, collection.Count());
         }
     }
 }

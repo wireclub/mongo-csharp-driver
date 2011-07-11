@@ -22,16 +22,16 @@ namespace MongoDB.Bson.IO {
     /// <summary>
     /// Represents settings for a BsonBinaryReader.
     /// </summary>
-    public class BsonBinaryReaderSettings {
+    [Serializable]
+    public class BsonBinaryReaderSettings : BsonReaderSettings {
         #region private static fields
-        private static BsonBinaryReaderSettings defaults = new BsonBinaryReaderSettings();
+        private static BsonBinaryReaderSettings defaults = null; // delay creation to pick up the latest default values
         #endregion
 
         #region private fields
         private bool closeInput = false;
         private bool fixOldBinarySubTypeOnInput = true;
         private int maxDocumentSize = BsonDefaults.MaxDocumentSize;
-        private bool isFrozen;
         #endregion
 
         #region constructors
@@ -46,12 +46,15 @@ namespace MongoDB.Bson.IO {
         /// </summary>
         /// <param name="closeInput">Whether to close the input stream when the reader is closed.</param>
         /// <param name="fixOldBinarySubTypeOnInput">Whether to fix occurrences of the old binary subtype on input.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         /// <param name="maxDocumentSize">The max document size.</param>
         public BsonBinaryReaderSettings(
             bool closeInput,
             bool fixOldBinarySubTypeOnInput,
+            GuidRepresentation guidRepresentation,
             int maxDocumentSize
-        ) {
+        ) 
+            : base(guidRepresentation) {
             this.closeInput = closeInput;
             this.fixOldBinarySubTypeOnInput = fixOldBinarySubTypeOnInput;
             this.maxDocumentSize = maxDocumentSize;
@@ -63,7 +66,12 @@ namespace MongoDB.Bson.IO {
         /// Gets or sets the default settings for a BsonBinaryReader.
         /// </summary>
         public static BsonBinaryReaderSettings Defaults {
-            get { return defaults; }
+            get {
+                if (defaults == null) {
+                    defaults = new BsonBinaryReaderSettings();
+                }
+                return defaults;
+            }
             set { defaults = value; }
         }
         #endregion
@@ -75,7 +83,7 @@ namespace MongoDB.Bson.IO {
         public bool CloseInput {
             get { return closeInput; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen."); }
                 closeInput = value;
             }
         }
@@ -86,16 +94,9 @@ namespace MongoDB.Bson.IO {
         public bool FixOldBinarySubTypeOnInput {
             get { return fixOldBinarySubTypeOnInput; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen."); }
                 fixOldBinarySubTypeOnInput = value;
             }
-        }
-
-        /// <summary>
-        /// Gets whether the settings are frozen.
-        /// </summary>
-        public bool IsFrozen {
-            get { return isFrozen; }
         }
 
         /// <summary>
@@ -104,7 +105,7 @@ namespace MongoDB.Bson.IO {
         public int MaxDocumentSize {
             get { return maxDocumentSize; }
             set {
-                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen"); }
+                if (isFrozen) { throw new InvalidOperationException("BsonBinaryReaderSettings is frozen."); }
                 maxDocumentSize = value;
             }
         }
@@ -115,21 +116,23 @@ namespace MongoDB.Bson.IO {
         /// Creates a clone of the settings.
         /// </summary>
         /// <returns>A clone of the settings.</returns>
-        public BsonBinaryReaderSettings Clone() {
+        public new BsonBinaryReaderSettings Clone() {
+            return (BsonBinaryReaderSettings) CloneImplementation();
+        }
+        #endregion
+
+        #region protected methods
+        /// <summary>
+        /// Creates a clone of the settings.
+        /// </summary>
+        /// <returns>A clone of the settings.</returns>
+        protected override BsonReaderSettings CloneImplementation() {
             return new BsonBinaryReaderSettings(
                 closeInput,
                 fixOldBinarySubTypeOnInput,
+                guidRepresentation,
                 maxDocumentSize
             );
-        }
-
-        /// <summary>
-        /// Freezes the settings.
-        /// </summary>
-        /// <returns>The settings.</returns>
-        public BsonBinaryReaderSettings Freeze() {
-            isFrozen = true;
-            return this;
         }
         #endregion
     }

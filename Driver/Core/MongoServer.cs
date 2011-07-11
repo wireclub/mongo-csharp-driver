@@ -103,7 +103,7 @@ namespace MongoDB.Driver {
                 MongoServer server;
                 if (!servers.TryGetValue(settings, out server)) {
                     if (servers.Count >= maxServerCount) {
-                        var message = string.Format("MongoServer.Create has already created the maximum number of servers allowed: {0}", maxServerCount);
+                        var message = string.Format("MongoServer.Create has already created {0} servers which is the maximum number of servers allowed.", maxServerCount);
                         throw new MongoException(message);
                     }
                     server = new MongoServer(settings);
@@ -213,6 +213,24 @@ namespace MongoDB.Driver {
                 lock (instances) {
                     return instances.Where(i => i.IsArbiter).ToArray();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Gets the build info of the server.
+        /// </summary>
+        public MongoServerBuildInfo BuildInfo {
+            get {
+                MongoServerInstance instance;
+                if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                    instance = Primary;
+                    if (instance == null) {
+                        throw new InvalidOperationException("Primary not found.");
+                    }
+                } else {
+                    instance = instances.First();
+                }
+                return instance.BuildInfo;
             }
         }
 
@@ -417,7 +435,7 @@ namespace MongoDB.Driver {
                             replicaSetConnector.Connect(timeout);
                             break;
                         default:
-                            throw new MongoInternalException("Invalid ConnectionMode");
+                            throw new MongoInternalException("Invalid ConnectionMode.");
                     }
                 }
             }
@@ -448,6 +466,7 @@ namespace MongoDB.Driver {
             return new MongoDatabaseSettings(
                 databaseName,
                 settings.DefaultCredentials,
+                settings.GuidRepresentation,
                 settings.SafeMode,
                 settings.SlaveOk
             );
@@ -529,7 +548,7 @@ namespace MongoDB.Driver {
             MongoDBRef dbRef
         ) {
             if (dbRef.DatabaseName == null) {
-                throw new ArgumentException("MongoDBRef DatabaseName missing");
+                throw new ArgumentException("MongoDBRef DatabaseName missing.");
             }
 
             var database = GetDatabase(dbRef.DatabaseName);
@@ -678,7 +697,7 @@ namespace MongoDB.Driver {
         /// <returns>The last error (<see cref=" GetLastErrorResult"/>)</returns>
         public virtual GetLastErrorResult GetLastError() {
             if (RequestNestingLevel == 0) {
-                throw new InvalidOperationException("GetLastError can only be called if RequestStart has been called first");
+                throw new InvalidOperationException("GetLastError can only be called if RequestStart has been called first.");
             }
             var adminDatabase = GetAdminDatabase((MongoCredentials) null); // no credentials needed for getlasterror
             return adminDatabase.RunCommandAs<GetLastErrorResult>("getlasterror"); // use all lowercase for backward compatibility
@@ -719,7 +738,7 @@ namespace MongoDB.Driver {
                         requests.Remove(threadId);
                     }
                 } else {
-                    throw new InvalidOperationException("Thread is not in a request (did you call RequestStart?)");
+                    throw new InvalidOperationException("Thread is not in a request (did you call RequestStart?).");
                 }
             }
 
@@ -868,8 +887,11 @@ namespace MongoDB.Driver {
                 }
             }
 
-            var serverInstance = GetServerInstance(slaveOk);
-            return serverInstance.AcquireConnection(database);
+            // get lock so serverInstance doesn't get disconnected before AcquireConnection is called
+            lock (serverLock) {
+                var serverInstance = GetServerInstance(slaveOk);
+                return serverInstance.AcquireConnection(database);
+            }
         }
 
         internal MongoConnection AcquireConnection(
@@ -902,7 +924,7 @@ namespace MongoDB.Driver {
         ) {
             lock (instances) {
                 if (instances.Any(i => i.Address == instance.Address)) {
-                    var message = string.Format("A server instance already exists for address: {0}", instance.Address);
+                    var message = string.Format("A server instance already exists for address '{0}'.", instance.Address);
                     throw new ArgumentException(message);
                 }
                 instances.Add(instance);
@@ -926,19 +948,29 @@ namespace MongoDB.Driver {
                 if (state == MongoServerState.Disconnected) {
                     Connect();
                 }
-                if (slaveOk) {
-                    // round robin the connected secondaries, fall back to primary if no secondary found
-                    lock (instances) {
-                        for (int i = 0; i < instances.Count; i++) {
-                            loadBalancingInstanceIndex = (loadBalancingInstanceIndex + 1) % instances.Count; // round robin
-                            var instance = instances[loadBalancingInstanceIndex];
-                            if (instance.State == MongoServerState.Connected && (instance.IsSecondary || instance.IsPassive)) {
-                                return instance;
+
+                if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                    if (slaveOk) {
+                        // round robin the connected secondaries, fall back to primary if no secondary found
+                        lock (instances) {
+                            for (int i = 0; i < instances.Count; i++) {
+                                loadBalancingInstanceIndex = (loadBalancingInstanceIndex + 1) % instances.Count; // round robin
+                                var instance = instances[loadBalancingInstanceIndex];
+                                if (instance.State == MongoServerState.Connected && (instance.IsSecondary || instance.IsPassive)) {
+                                    return instance;
+                                }
                             }
                         }
                     }
+
+                    var primary = Primary;
+                    if (primary == null) {
+                        throw new MongoConnectionException("Primary server not found.");
+                    }
+                    return primary;
+                } else {
+                    return instances.First();
                 }
-                return Primary;
             }
         }
 
@@ -951,7 +983,7 @@ namespace MongoDB.Driver {
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
                     if (connection != request.Connection) {
-                        throw new ArgumentException("Connection being released is not the one assigned to the thread by RequestStart", "connection");
+                        throw new ArgumentException("Connection being released is not the one assigned to the thread by RequestStart.", "connection");
                     }
                     return; // hold on to the connection until RequestDone is called
                 }

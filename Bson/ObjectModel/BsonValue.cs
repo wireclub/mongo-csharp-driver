@@ -405,7 +405,14 @@ namespace MongoDB.Bson {
         /// Tests whether this BsonValue is a Guid.
         /// </summary>
         public bool IsGuid {
-            get { return bsonType == BsonType.Binary && ((BsonBinaryData) this).SubType == BsonBinarySubType.Uuid; }
+            get {
+                if (bsonType == BsonType.Binary) {
+                    var subType = ((BsonBinaryData) this).SubType;
+                    return subType == BsonBinarySubType.UuidStandard || subType == BsonBinarySubType.UuidLegacy;
+                } else {
+                    return false;
+                }
+            }
         }
 
         /// <summary>
@@ -977,7 +984,13 @@ namespace MongoDB.Bson {
                     byte[] bytes;
                     BsonBinarySubType subType;
                     bsonReader.ReadBinaryData(out bytes, out subType);
-                    return new BsonBinaryData(bytes, subType);
+                    if (subType == BsonBinarySubType.UuidStandard) {
+                        return new BsonBinaryData(bytes, subType, GuidRepresentation.Standard);
+                    } else if (subType == BsonBinarySubType.UuidLegacy) {
+                        return new BsonBinaryData(bytes, subType, bsonReader.Settings.GuidRepresentation);
+                    } else {
+                        return new BsonBinaryData(bytes, subType);
+                    }
                 case BsonType.Boolean:
                     return BsonBoolean.Create(bsonReader.ReadBoolean());
                 case BsonType.DateTime:
@@ -1027,7 +1040,7 @@ namespace MongoDB.Bson {
                     bsonReader.ReadUndefined();
                     return BsonUndefined.Value;
                 default:
-                    var message = string.Format("Invalid BsonType: {0}", bsonType);
+                    var message = string.Format("Invalid BsonType {0}.", bsonType);
                     throw new BsonInternalException(message);
             }
         }
@@ -1090,7 +1103,7 @@ namespace MongoDB.Bson {
         public override bool Equals(
             object obj
         ) {
-            throw new BsonInternalException("A subclass of BsonValue did not override Equals");
+            throw new BsonInternalException("A subclass of BsonValue did not override Equals.");
         }
 
         /// <summary>
@@ -1098,7 +1111,7 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <returns>The hash code.</returns>
         public override int GetHashCode() {
-            throw new BsonInternalException("A subclass of BsonValue did not override GetHashCode");
+            throw new BsonInternalException("A subclass of BsonValue did not override GetHashCode.");
         }
 
         /// <summary>
@@ -1170,7 +1183,23 @@ namespace MongoDB.Bson {
                     break;
                 case BsonType.Binary:
                     var binaryData = (BsonBinaryData) this;
-                    bsonWriter.WriteBinaryData(binaryData.Bytes, binaryData.SubType);
+                    var bytes = binaryData.Bytes;
+                    var subType = binaryData.SubType;
+                    var guidRepresentation = binaryData.GuidRepresentation;
+                    var writerGuidRepresentation = bsonWriter.Settings.GuidRepresentation;
+                    if (subType == BsonBinarySubType.UuidLegacy && writerGuidRepresentation != GuidRepresentation.Unspecified) {
+                        if (guidRepresentation != writerGuidRepresentation) {
+                            if (guidRepresentation == GuidRepresentation.Unspecified) {
+                                var message = string.Format("Cannot write binary data of sub type UuidLegacy and GuidRepresentation Unspecified to a collection with GuidRepresentation {0}.", writerGuidRepresentation);
+                                throw new BsonSerializationException(message);
+                            }
+                            var guid = GuidConverter.FromBytes(bytes, guidRepresentation);
+                            bytes = GuidConverter.ToBytes(guid, writerGuidRepresentation);
+                            subType = (writerGuidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy;
+                            guidRepresentation = writerGuidRepresentation;
+                        }
+                    }
+                    bsonWriter.WriteBinaryData(bytes, subType, guidRepresentation);
                     break;
                 case BsonType.Boolean:
                     bsonWriter.WriteBoolean(((BsonBoolean) this).Value);
@@ -1187,7 +1216,8 @@ namespace MongoDB.Bson {
                         if (documentWrapper != null) {
                             documentWrapper.Serialize(bsonWriter, typeof(BsonDocument), null);
                         } else {
-                            throw new BsonInternalException("Unexpected class for BsonType document: ", this.GetType().FullName);
+                            var message = string.Format("BsonType Document can only be used with the classes BsonDocument or BsonDocumentWrapper, not with the class {0}.", this.GetType().FullName);
+                            throw new BsonInternalException(message);
                         }
                     }
                     break;
