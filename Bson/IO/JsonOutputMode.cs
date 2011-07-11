@@ -38,6 +38,10 @@ namespace MongoDB.Bson.IO {
         /// <summary>
         /// Use a format that can be pasted in to the MongoDB shell.
         /// </summary>
-        Shell
+        Shell,
+        /// <summary>
+        /// Do not output leaf values
+        /// </summary>
+        Structural
     }
 }

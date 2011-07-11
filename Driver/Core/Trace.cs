@@ -2,22 +2,40 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Linq;
+using System.Text.RegularExpressions;
 using System.Web;
+using AOD;
+using MongoDB.Bson;
+using MongoDB.Bson.IO;
 
 namespace MongoDB.Driver.Core
 {
-	public delegate T TraceDelegate<out T>();
+    public delegate T TraceDelegate<out T>();
 
-	public static class Trace
-	{
-		public static bool EnableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "false");
+    public class QueryPerformanceRecord
+    {
+        public string Identifier;
+        public double Milliseconds;
+        public int Count;
+    }
 
-		public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
-		{
-			var stopwatch = new Stopwatch();
-			stopwatch.Start();
-			var result = action();
+    public static class Trace
+    {
+        private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
+        private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "20");
+        private static readonly Dictionary<string, QueryPerformanceRecord> _performance = new Dictionary<string, QueryPerformanceRecord>();
+
+        public static Dictionary<string, QueryPerformanceRecord> GetPerformance()
+        {
+            using (DisposableLock.Lock(_performance))
+                return new Dictionary<string, QueryPerformanceRecord>(_performance);
+        }
+
+        public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+            var result = action();
             stopwatch.Stop();
 
             if (HttpContext.Current != null)
@@ -29,56 +47,21 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + stopwatch.ElapsedMilliseconds;
             }
 
-            if (EnableTracing && stopwatch.ElapsedMilliseconds > 20)
-            {
-                var q = query as QueryDocument;
-                if (q != null)
-                    query = string.Join(", ", q.Elements.Select(e => e.Value.ToString()).ToArray());
+            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
+            identifier = Regex.Replace(identifier, "(\\[.*\\])", "@array");
 
+            using (DisposableLock.Lock(_performance))
+            {
+                var record = _performance.AcquireKey(identifier);
+                record.Identifier = identifier;
+                record.Milliseconds += stopwatch.ElapsedMilliseconds;
+                record.Count++;
+            }
+
+            if (_enableTracing && stopwatch.ElapsedMilliseconds > _traceThreshold)
                 Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, stopwatch.ElapsedMilliseconds, collection, query));
-                // Debug.WriteLine(new StackTrace());
-            }
 
-			return result;
-		}
-	}
-
-    public class CachedCursor<T> : MongoCursor<T>
-    {
-        private List<T> _cached;
-        private readonly Stopwatch _time = new Stopwatch();
-        
-        public long Milliseconds
-        {
-            get
-            {
-                return _time.ElapsedMilliseconds;
-            }
-        }
-
-        public CachedCursor(MongoCollection collection, IMongoQuery query) : base(collection, query)
-        {
-        }
-
-        public override IEnumerator<T> GetEnumerator()
-        {
-            _time.Start();
-            if (_cached == null)
-            {
-                _cached = new List<T>();
-                var e = base.GetEnumerator();
-                while (e.MoveNext())
-                    _cached.Add(e.Current);
-            }
-            _time.Stop();
-
-            if (HttpContext.Current != null)
-            {
-                var current = HttpContext.Current.Items["enumtime"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["enumtime"]);
-                HttpContext.Current.Items["enumtime"] = current + _time.ElapsedMilliseconds;
-            }
-
-            return _cached.GetEnumerator();
+            return result;
         }
     }
 }

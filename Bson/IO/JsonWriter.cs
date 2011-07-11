@@ -89,6 +89,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             if (settings.OutputMode == JsonOutputMode.Shell) {
                 WriteNameHelper(name);
                 textWriter.Write("new BinData({0}, \"{1}\")", (int) subType, Convert.ToBase64String(bytes));
@@ -115,6 +123,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteNameHelper(name);
             textWriter.Write(value ? "true" : "false");
 
@@ -132,6 +148,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteDateTime cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             switch (settings.OutputMode) {
@@ -176,6 +200,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteDouble cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             WriteNameHelper(name);
@@ -252,6 +284,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteNameHelper(name);
             textWriter.Write(value);
 
@@ -269,6 +309,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteInt64 cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             switch (settings.OutputMode) {
@@ -308,6 +356,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteStartDocument();
             WriteString("$code", code);
             WriteEndDocument();
@@ -326,6 +382,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteJavaScriptWithScope cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             WriteStartDocument();
@@ -379,6 +443,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteNameHelper(name);
             textWriter.Write("null");
 
@@ -402,6 +474,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteObjectId cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             var bytes = ObjectId.Pack(timestamp, machine, pid, increment);
@@ -435,6 +515,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteRegularExpression cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             switch (settings.OutputMode) {
@@ -517,6 +605,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteNameHelper(name);
             WriteStringHelper(value);
 
@@ -534,6 +630,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteSymbol cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             WriteStartDocument();
@@ -556,6 +660,14 @@ namespace MongoDB.Bson.IO {
                 throw new InvalidOperationException(message);
             }
 
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
+            }
+
             WriteStartDocument();
             WriteInt64("$timestamp", value);
             WriteEndDocument();
@@ -571,6 +683,14 @@ namespace MongoDB.Bson.IO {
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 var message = string.Format("WriteUndefined cannot be called when State is: {0}", state);
                 throw new InvalidOperationException(message);
+            }
+
+            if (settings.OutputMode == JsonOutputMode.Structural)
+            {
+                WriteNameHelper(name);
+                textWriter.Write("@");
+                state = GetNextState();
+                return;
             }
 
             WriteNameHelper(name);
