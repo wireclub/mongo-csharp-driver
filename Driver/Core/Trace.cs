@@ -23,12 +23,16 @@ namespace MongoDB.Driver.Core
     {
         private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "20");
-        private static readonly Dictionary<string, QueryPerformanceRecord> _performance = new Dictionary<string, QueryPerformanceRecord>();
+        private static Dictionary<string, QueryPerformanceRecord> _performance = new Dictionary<string, QueryPerformanceRecord>();
 
-        public static Dictionary<string, QueryPerformanceRecord> GetPerformance()
+        public static Dictionary<string, QueryPerformanceRecord> CollectPerformanceData()
         {
             using (DisposableLock.Lock(_performance))
-                return new Dictionary<string, QueryPerformanceRecord>(_performance);
+            {
+                var result = _performance;
+                _performance = new Dictionary<string, QueryPerformanceRecord>();
+                return result;
+            }
         }
 
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
