@@ -58,7 +58,7 @@ namespace MongoDB.Driver.Core
             {
                 var record = _performance.AcquireKey(identifier);
                 record.Identifier = identifier;
-                record.Milliseconds += stopwatch.ElapsedMilliseconds;
+                record.Milliseconds += stopwatch.Elapsed.TotalMilliseconds;
                 record.Count++;
             }
 
