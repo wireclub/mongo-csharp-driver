@@ -62,7 +62,7 @@ namespace MongoDB.Driver.Core
                 record.Count++;
             }
 
-            if (_enableTracing && stopwatch.ElapsedMilliseconds > _traceThreshold)
+            if (_enableTracing && stopwatch.ElapsedMilliseconds >= _traceThreshold)
                 Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, stopwatch.ElapsedMilliseconds, collection, query));
 
             return result;

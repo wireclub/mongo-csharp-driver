@@ -220,7 +220,10 @@ namespace MongoDB.Driver {
                         cursor.Fields
                     )
                 ) {
-                    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetFirst", cursor.Collection.FullName, WrapQuery()); 
+					if ((cursor.Flags & QueryFlags.AwaitData) > 0)
+						return GetReply(connection, message);
+					else
+						return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetFirst", cursor.Collection.FullName, WrapQuery());
                 }
             } finally {
                 cursor.Server.ReleaseConnection(connection);
@@ -247,7 +250,10 @@ namespace MongoDB.Driver {
                         openCursorId
                     )
                 ) {
-                    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetMore", cursor.Collection.FullName, WrapQuery());
+					if ((cursor.Flags & QueryFlags.AwaitData) > 0)
+						return GetReply(connection, message);
+					else
+						return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetMore", cursor.Collection.FullName, WrapQuery());
                 }
             } finally {
                 cursor.Server.ReleaseConnection(connection);
