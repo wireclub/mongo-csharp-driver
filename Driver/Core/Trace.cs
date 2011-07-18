@@ -25,6 +25,12 @@ namespace MongoDB.Driver.Core
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "20");
         private static Dictionary<string, QueryPerformanceRecord> _performance = new Dictionary<string, QueryPerformanceRecord>();
 
+        public static Dictionary<string, QueryPerformanceRecord> CopyPerformanceData()
+        {
+            using (DisposableLock.Lock(_performance))
+                return new Dictionary<string, QueryPerformanceRecord>(_performance);
+        }
+
         public static Dictionary<string, QueryPerformanceRecord> CollectPerformanceData()
         {
             using (DisposableLock.Lock(_performance))
