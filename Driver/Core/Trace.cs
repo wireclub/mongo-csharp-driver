@@ -7,6 +7,7 @@ using System.Web;
 using AOD;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace MongoDB.Driver.Core
 {
@@ -14,8 +15,13 @@ namespace MongoDB.Driver.Core
 
     public class QueryPerformanceRecord
     {
+        [BsonElement("i")]
         public string Identifier;
+
+        [BsonElement("m")]
         public double Milliseconds;
+
+        [BsonElement("c")]
         public int Count;
     }
 
