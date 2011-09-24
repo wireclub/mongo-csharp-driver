@@ -7,21 +7,15 @@ using System.Web;
 using AOD;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
-using MongoDB.Bson.Serialization.Attributes;
 
 namespace MongoDB.Driver.Core
 {
     public delegate T TraceDelegate<out T>();
 
-    public class QueryPerformanceRecord
+    public class QueryPerformanceData
     {
-        [BsonElement("i")]
         public string Identifier;
-
-        [BsonElement("m")]
         public double Milliseconds;
-
-        [BsonElement("c")]
         public int Count;
     }
 
@@ -29,20 +23,20 @@ namespace MongoDB.Driver.Core
     {
         private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "20");
-        private static Dictionary<string, QueryPerformanceRecord> _performance = new Dictionary<string, QueryPerformanceRecord>();
+        private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
 
-        public static Dictionary<string, QueryPerformanceRecord> CopyPerformanceData()
+        public static Dictionary<string, QueryPerformanceData> CopyPerformanceData()
         {
             using (DisposableLock.Lock(_performance))
-                return new Dictionary<string, QueryPerformanceRecord>(_performance);
+                return new Dictionary<string, QueryPerformanceData>(_performance);
         }
 
-        public static Dictionary<string, QueryPerformanceRecord> CollectPerformanceData()
+        public static Dictionary<string, QueryPerformanceData> CollectPerformanceData()
         {
             using (DisposableLock.Lock(_performance))
             {
                 var result = _performance;
-                _performance = new Dictionary<string, QueryPerformanceRecord>();
+                _performance = new Dictionary<string, QueryPerformanceData>();
                 return result;
             }
         }
