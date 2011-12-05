@@ -17,14 +17,19 @@ namespace MongoDB.Driver.Core
         public string Identifier;
         public double Milliseconds;
         public int Count;
+        public int Slow;
+        public int Tragic;
+        public int Unacceptable;
     }
 
     public static class Trace
     {
-        private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
-        private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "20");
-        private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
+        private const int QueryTimeSlow = 20;
+        private const int QueryTimeTragic = 100;
+        private const int QueryTimeUnacceptable = 200;
 
+        private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
+        
         public static Dictionary<string, QueryPerformanceData> CopyPerformanceData()
         {
             using (DisposableLock.Lock(_performance))
@@ -43,33 +48,40 @@ namespace MongoDB.Driver.Core
 
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
         {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
+            // Execute and time action
+            var timer = Stopwatch.StartNew();
             var result = action();
-            stopwatch.Stop();
+            timer.Stop();
 
+            // Update request context
             if (HttpContext.Current != null)
             {
                 var count = HttpContext.Current.Items["dbcount"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbcount"]);
-                HttpContext.Current.Items["dbcount"] = count + 1;
-
                 var time = HttpContext.Current.Items["dbtime"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbtime"]);
-                HttpContext.Current.Items["dbtime"] = time + stopwatch.ElapsedMilliseconds;
+
+                HttpContext.Current.Items["dbcount"] = count + 1;
+                HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;
             }
 
+            // Generate identifier
             var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
             identifier = Regex.Replace(identifier, "(\\[.*\\])", "@array");
 
+            // Increment times
             using (DisposableLock.Lock(_performance))
             {
                 var record = _performance.AcquireKey(identifier);
                 record.Identifier = identifier;
-                record.Milliseconds += stopwatch.Elapsed.TotalMilliseconds;
+                record.Milliseconds += timer.Elapsed.TotalMilliseconds;
                 record.Count++;
-            }
 
-            if (_enableTracing && stopwatch.ElapsedMilliseconds >= _traceThreshold)
-                Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, stopwatch.ElapsedMilliseconds, collection, query));
+                if (timer.Elapsed.TotalMilliseconds > QueryTimeUnacceptable)
+                    record.Unacceptable++;
+                else if (timer.Elapsed.TotalMilliseconds > QueryTimeTragic)
+                    record.Tragic++;
+                else if (timer.Elapsed.TotalMilliseconds > QueryTimeSlow)
+                    record.Slow++;
+            }
 
             return result;
         }
