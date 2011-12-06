@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Web;
 using AOD;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
-using MongoDB.Driver.Internal;
 
 namespace MongoDB.Driver.Core
 {
@@ -22,7 +22,7 @@ namespace MongoDB.Driver.Core
         public int Unacceptable;
     }
 
-    internal static class Trace
+    public static class Trace
     {
         private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
@@ -51,10 +51,8 @@ namespace MongoDB.Driver.Core
 
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
         {
-            if (HttpContext.Current != null)
-            {
-                
-            }
+            // If not logged in or no httpcontext
+            
 
             // Execute and time action
             var timer = Stopwatch.StartNew();

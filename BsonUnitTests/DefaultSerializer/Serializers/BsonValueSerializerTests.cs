@@ -112,7 +112,7 @@ namespace MongoDB.BsonUnitTests.Serialization {
         public void TestEmpty() {
             var obj = new TestClass(Guid.Empty);
             var json = obj.ToJson();
-            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "new BinData(3, 'AAAAAAAAAAAAAAAAAAAAAA==')").Replace("'", "\"");
+            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "CSUUID('00000000-0000-0000-0000-000000000000')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();
@@ -122,10 +122,11 @@ namespace MongoDB.BsonUnitTests.Serialization {
 
         [Test]
         public void TestNew() {
-            var obj = new TestClass(Guid.NewGuid());
+            var guid = Guid.NewGuid();
+            var obj = new TestClass(guid);
             var json = obj.ToJson();
             var base64 = Convert.ToBase64String(obj.V.Bytes).Replace("\\", "\\\\");
-            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "new BinData(3, '" + base64 + "')").Replace("'", "\"");
+            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "CSUUID('" + guid.ToString() + "')").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();
@@ -434,7 +435,15 @@ namespace MongoDB.BsonUnitTests.Serialization {
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();
-            Assert.Throws<NotSupportedException>(() => BsonSerializer.Deserialize<TestClass>(bson));
+            try {
+                BsonSerializer.Deserialize<TestClass>(bson);
+                Assert.Fail("Expected an exception to be thrown.");
+            } catch (Exception ex) {
+                var expectedMessage = "An error occurred while deserializing the V property of class MongoDB.BsonUnitTests.Serialization.BsonDocumentWrapperSerializerTests+TestClass: Specified method is not supported.";
+                Assert.IsInstanceOf<FileFormatException>(ex);
+                Assert.IsInstanceOf<NotSupportedException>(ex.InnerException);
+                Assert.AreEqual(expectedMessage, ex.Message);
+            }
         }
 
         [Test]
@@ -445,7 +454,15 @@ namespace MongoDB.BsonUnitTests.Serialization {
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();
-            Assert.Throws<NotSupportedException>(() => BsonSerializer.Deserialize<TestClass>(bson));
+            try {
+                BsonSerializer.Deserialize<TestClass>(bson);
+                Assert.Fail("Expected an exception to be thrown.");
+            } catch (Exception ex) {
+                var expectedMessage = "An error occurred while deserializing the V property of class MongoDB.BsonUnitTests.Serialization.BsonDocumentWrapperSerializerTests+TestClass: Specified method is not supported.";
+                Assert.IsInstanceOf<FileFormatException>(ex);
+                Assert.IsInstanceOf<NotSupportedException>(ex.InnerException);
+                Assert.AreEqual(expectedMessage, ex.Message);
+            }
         }
 
         [Test]
@@ -463,7 +480,15 @@ namespace MongoDB.BsonUnitTests.Serialization {
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();
-            Assert.Throws<NotSupportedException>(() => BsonSerializer.Deserialize<TestClass>(bson));
+            try {
+                BsonSerializer.Deserialize<TestClass>(bson);
+                Assert.Fail("Expected an exception to be thrown.");
+            } catch (Exception ex) {
+                var expectedMessage = "An error occurred while deserializing the V property of class MongoDB.BsonUnitTests.Serialization.BsonDocumentWrapperSerializerTests+TestClass: Specified method is not supported.";
+                Assert.IsInstanceOf<FileFormatException>(ex);
+                Assert.IsInstanceOf<NotSupportedException>(ex.InnerException);
+                Assert.AreEqual(expectedMessage, ex.Message);
+            }
         }
     }
 
@@ -1062,9 +1087,9 @@ namespace MongoDB.BsonUnitTests.Serialization {
 
         [Test]
         public void TestWithOptions() {
-            var obj = new TestClass(new BsonRegularExpression("abc", "gim"));
+            var obj = new TestClass(new BsonRegularExpression("abc", "imxs"));
             var json = obj.ToJson();
-            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "/abc/gim").Replace("'", "\"");
+            var expected = "{ 'B' : #, 'V' : # }".Replace("#", "/abc/imxs").Replace("'", "\"");
             Assert.AreEqual(expected, json);
 
             var bson = obj.ToBson();

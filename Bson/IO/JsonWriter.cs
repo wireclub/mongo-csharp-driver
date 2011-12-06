@@ -84,24 +84,60 @@ namespace MongoDB.Bson.IO {
         public override void WriteBinaryData(
             byte[] bytes,
             BsonBinarySubType subType,
-            GuidRepresentation guidRepresentation // ignored for now (until we figure out how to represent this in the generated JSON)
+            GuidRepresentation guidRepresentation
         ) {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteBinaryData", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             if (settings.OutputMode == JsonOutputMode.Shell) {
                 WriteNameHelper(name);
-                textWriter.Write("new BinData({0}, \"{1}\")", (int) subType, Convert.ToBase64String(bytes));
+                switch (subType) {
+                    case BsonBinarySubType.UuidLegacy:
+                    case BsonBinarySubType.UuidStandard:
+                        if (bytes.Length != 16) {
+                            var message = string.Format("Length of binary subtype {0} must be 16, not {1}.", subType, bytes.Length);
+                            throw new ArgumentException(message);
+                        }
+                        if (subType == BsonBinarySubType.UuidLegacy && guidRepresentation == GuidRepresentation.Standard) {
+                            throw new ArgumentException("GuidRepresentation for binary subtype UuidLegacy must not be Standard.");
+                        }
+                        if (subType == BsonBinarySubType.UuidStandard && guidRepresentation != GuidRepresentation.Standard) {
+                            var message = string.Format("GuidRepresentation for binary subtype UuidStandard must be Standard, not {0}.", guidRepresentation);
+                            throw new ArgumentException(message);
+                        }
+                        if (settings.ShellVersion >= new Version(2, 0, 0)) {
+                            if (guidRepresentation == GuidRepresentation.Unspecified) {
+                                var s = BsonUtils.ToHexString(bytes);
+                                var parts = new string[] {
+                                    s.Substring(0, 8),
+                                    s.Substring(8, 4),
+                                    s.Substring(12, 4),
+                                    s.Substring(16, 4),
+                                    s.Substring(20, 12)
+                                };
+                                textWriter.Write("HexData({0}, \"{1}\")", (int) subType, string.Join("-", parts));
+                            } else {
+                                string uuidConstructorName;
+                                switch (guidRepresentation) {
+                                    case GuidRepresentation.CSharpLegacy: uuidConstructorName = "CSUUID"; break;
+                                    case GuidRepresentation.JavaLegacy: uuidConstructorName = "JUUID"; break;
+                                    case GuidRepresentation.PythonLegacy: uuidConstructorName = "PYUUID"; break;
+                                    case GuidRepresentation.Standard: uuidConstructorName = "UUID"; break;
+                                    default: throw new BsonInternalException("Unexpected GuidRepresentation");
+                                }
+                                var guid = GuidConverter.FromBytes(bytes, guidRepresentation);
+                                textWriter.Write("{0}(\"{1}\")", uuidConstructorName, guid.ToString());
+                            }
+                        } else {
+                            textWriter.Write("new BinData({0}, \"{1}\")", (int) subType, Convert.ToBase64String(bytes));
+                        }
+                        break;
+                    default:
+                        textWriter.Write("new BinData({0}, \"{1}\")", (int) subType, Convert.ToBase64String(bytes));
+                        break;
+                }
             } else {
                 WriteStartDocument();
                 WriteString("$binary", Convert.ToBase64String(bytes));
@@ -124,14 +160,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteBoolean", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteNameHelper(name);
             textWriter.Write(value ? "true" : "false");
 
@@ -150,14 +178,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteDateTime", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             switch (settings.OutputMode) {
                 case JsonOutputMode.Strict:
                     WriteStartDocument();
@@ -167,17 +187,21 @@ namespace MongoDB.Bson.IO {
                 case JsonOutputMode.JavaScript:
                 case JsonOutputMode.TenGen:
                     WriteNameHelper(name);
-                    textWriter.Write("Date({0})", value);
+                    textWriter.Write("new Date({0})", value);
                     break;
                 case JsonOutputMode.Shell:
                     WriteNameHelper(name);
-                    // use ISODate for values that fall within .NET's DateTime range, and "new Date" for all others
-                    if (
-                        value >= BsonConstants.DateTimeMinValueMillisecondsSinceEpoch &&
-                        value <= BsonConstants.DateTimeMaxValueMillisecondsSinceEpoch
-                    ) {
-                        var utcDateTime = BsonUtils.ToDateTimeFromMillisecondsSinceEpoch(value);
-                        textWriter.Write("ISODate(\"{0}\")", utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ"));
+                    if (settings.ShellVersion >= new Version(1, 8, 0)) {
+                        // use ISODate for values that fall within .NET's DateTime range, and "new Date" for all others
+                        if (
+                            value >= BsonConstants.DateTimeMinValueMillisecondsSinceEpoch &&
+                            value <= BsonConstants.DateTimeMaxValueMillisecondsSinceEpoch
+                        ) {
+                            var utcDateTime = BsonUtils.ToDateTimeFromMillisecondsSinceEpoch(value);
+                            textWriter.Write("ISODate(\"{0}\")", utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.FFFZ"));
+                        } else {
+                            textWriter.Write("new Date({0})", value);
+                        }
                     } else {
                         textWriter.Write("new Date({0})", value);
                     }
@@ -199,14 +223,6 @@ namespace MongoDB.Bson.IO {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteDouble", BsonWriterState.Value, BsonWriterState.Initial);
-            }
-
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
             }
 
             WriteNameHelper(name);
@@ -280,14 +296,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteInt32", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteNameHelper(name);
             textWriter.Write(value);
 
@@ -306,14 +314,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteInt64", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             switch (settings.OutputMode) {
                 case JsonOutputMode.Strict:
                 case JsonOutputMode.JavaScript:
@@ -323,10 +323,14 @@ namespace MongoDB.Bson.IO {
                 case JsonOutputMode.TenGen:
                 case JsonOutputMode.Shell:
                     WriteNameHelper(name);
-                    if (value >= int.MinValue && value <= int.MaxValue) {
-                        textWriter.Write("NumberLong({0})", value);
+                    if (settings.OutputMode == JsonOutputMode.TenGen || settings.ShellVersion >= new Version(1, 6, 0)) {
+                        if (value >= int.MinValue && value <= int.MaxValue) {
+                            textWriter.Write("NumberLong({0})", value);
+                        } else {
+                            textWriter.Write("NumberLong(\"{0}\")", value);
+                        }
                     } else {
-                        textWriter.Write("NumberLong(\"{0}\")", value);
+                        textWriter.Write(value);
                     }
                     break;
                 default:
@@ -350,14 +354,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteJavaScript", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteStartDocument();
             WriteString("$code", code);
             WriteEndDocument();
@@ -375,14 +371,6 @@ namespace MongoDB.Bson.IO {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteJavaScriptWithScope", BsonWriterState.Value, BsonWriterState.Initial);
-            }
-
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
             }
 
             WriteStartDocument();
@@ -433,14 +421,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteNull", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteNameHelper(name);
             textWriter.Write("null");
 
@@ -463,14 +443,6 @@ namespace MongoDB.Bson.IO {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteObjectId", BsonWriterState.Value, BsonWriterState.Initial);
-            }
-
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
             }
 
             var bytes = ObjectId.Pack(timestamp, machine, pid, increment);
@@ -505,14 +477,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteRegularExpression", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             switch (settings.OutputMode) {
                 case JsonOutputMode.Strict:
                     WriteStartDocument();
@@ -528,15 +492,7 @@ namespace MongoDB.Bson.IO {
                     var escaped = (pattern == "") ? "(?:)" : pattern.Replace(@"\", @"\\").Replace("/", @"\/");
                     textWriter.Write(escaped);
                     textWriter.Write("/");
-                    foreach (char c in options.ToLower()) {
-                        switch (c) {
-                            case 'g':
-                            case 'i':
-                            case 'm':
-                                textWriter.Write(c);
-                                break;
-                        }
-                    }
+                    textWriter.Write(options);
                     break;
             }
 
@@ -590,14 +546,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteString", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteNameHelper(name);
             WriteStringHelper(value);
 
@@ -614,14 +562,6 @@ namespace MongoDB.Bson.IO {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteSymbol", BsonWriterState.Value, BsonWriterState.Initial);
-            }
-
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
             }
 
             WriteStartDocument();
@@ -643,14 +583,6 @@ namespace MongoDB.Bson.IO {
                 ThrowInvalidState("WriteTimestamp", BsonWriterState.Value, BsonWriterState.Initial);
             }
 
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
-            }
-
             WriteStartDocument();
             WriteInt64("$timestamp", value);
             WriteEndDocument();
@@ -665,14 +597,6 @@ namespace MongoDB.Bson.IO {
             if (disposed) { throw new ObjectDisposedException("JsonWriter"); }
             if (state != BsonWriterState.Value && state != BsonWriterState.Initial) {
                 ThrowInvalidState("WriteUndefined", BsonWriterState.Value, BsonWriterState.Initial);
-            }
-
-            if (settings.OutputMode == JsonOutputMode.Structural)
-            {
-                WriteNameHelper(name);
-                textWriter.Write("@");
-                state = GetNextState();
-                return;
             }
 
             WriteNameHelper(name);

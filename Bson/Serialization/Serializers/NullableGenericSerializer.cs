@@ -27,6 +27,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
     /// <summary>
     /// Represents a serializer for nullable values.
     /// </summary>
+    /// <typeparam name="T">The underlying type.</typeparam>
     public class NullableSerializer<T> : BsonBaseSerializer where T : struct {
         #region private fields
         private IBsonSerializer serializer;
@@ -47,13 +48,17 @@ namespace MongoDB.Bson.Serialization.Serializers {
         /// </summary>
         /// <param name="bsonReader">The BsonReader.</param>
         /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="actualType">The actual type of the object.</param>
         /// <param name="options">The serialization options.</param>
         /// <returns>An object.</returns>
         public override object Deserialize(
             BsonReader bsonReader,
             Type nominalType,
+            Type actualType,
             IBsonSerializationOptions options
         ) {
+            VerifyTypes(nominalType, actualType, typeof(Nullable<T>));
+
             var bsonType = bsonReader.CurrentBsonType;
             if (bsonType == BsonType.Null) {
                 bsonReader.ReadNull();

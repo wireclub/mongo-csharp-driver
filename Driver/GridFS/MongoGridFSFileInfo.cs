@@ -28,14 +28,14 @@ namespace MongoDB.Driver.GridFS {
     /// <summary>
     /// Represents information about a GridFS file (patterned after .NET's FileInfo class).
     /// </summary>
-    public class MongoGridFSFileInfo : IBsonSerializable {
+    public class MongoGridFSFileInfo : IBsonSerializable, IEquatable<MongoGridFSFileInfo> {
         #region private fields
         // these fields are considered in Equals and GetHashCode
         private string[] aliases;
         private int chunkSize;
         private string contentType;
         private BsonValue id; // usually a BsonObjectId but not required to be
-        private int length;
+        private long length;
         private string md5;
         private BsonDocument metadata;
         private string name;
@@ -172,7 +172,7 @@ namespace MongoDB.Driver.GridFS {
         /// <summary>
         /// Gets the file lenth.
         /// </summary>
-        public int Length {
+        public long Length {
             get {
                 if (!cached) { Refresh(); }
                 return length;
@@ -315,7 +315,7 @@ namespace MongoDB.Driver.GridFS {
         /// </summary>
         public void Delete() {
             if (Exists) {
-                using (gridFS.Database.RequestStart()) {
+                using (gridFS.Database.RequestStart(false)) { // not slaveOk
                     gridFS.EnsureIndexes();
                     gridFS.Files.Remove(Query.EQ("_id", id), gridFS.Settings.SafeMode);
                     gridFS.Chunks.Remove(Query.EQ("files_id", id), gridFS.Settings.SafeMode);
@@ -331,7 +331,7 @@ namespace MongoDB.Driver.GridFS {
         public bool Equals(
             MongoGridFSFileInfo rhs
         ) {
-            if (rhs == null) { return false; }
+            if (object.ReferenceEquals(rhs, null) || GetType() != rhs.GetType()) { return false; }
             return
                 (this.aliases == null && rhs.aliases == null || this.aliases != null && rhs.aliases != null && this.aliases.SequenceEqual(rhs.aliases)) &&
                 this.chunkSize == rhs.chunkSize &&
@@ -350,7 +350,7 @@ namespace MongoDB.Driver.GridFS {
         /// <param name="obj">The other object.</param>
         /// <returns>True if the other object is a MongoGridFSFileInfo and equal to this one.</returns>
         public override bool Equals(object obj) {
-            return Equals(obj as MongoGridFSFileInfo); // works even if obj is null
+            return Equals(obj as MongoGridFSFileInfo); // works even if obj is null or of a different type
         }
 
         /// <summary>
@@ -491,7 +491,7 @@ namespace MongoDB.Driver.GridFS {
                 }
                 exists = true;
                 id = fileInfo["_id"];
-                length = fileInfo["length"].ToInt32();
+                length = fileInfo["length"].ToInt64();
                 var md5Value = fileInfo["md5", null];
                 if (md5Value != null && !md5Value.IsBsonNull) {
                     md5 = md5Value.AsString;

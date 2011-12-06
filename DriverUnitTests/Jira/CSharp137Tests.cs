@@ -31,14 +31,15 @@ namespace MongoDB.DriverUnitTests.Jira.CSharp137 {
         [Test]
         public void TestAndInNotIn() {
             var query = Query.And(
-                Query.In("value", new BsonArray(new int[] { 1, 2, 3, 4 })),
-                Query.NotIn("value", new BsonArray(new int[] { 11, 12, 13, 14 })));
+                Query.In("value", 1, 2, 3, 4 ),
+                Query.NotIn("value", 11, 12, 13, 14)
+            );
 
             Assert.AreEqual(
-                new BsonDocument() {
-                    {"value", new BsonDocument() {
-                        {"$in", new BsonArray(new int[] { 1, 2, 3, 4 })},
-                        {"$nin", new BsonArray(new int[] { 11, 12, 13, 14 })}
+                new BsonDocument {
+                    {"value", new BsonDocument {
+                        {"$in", new BsonArray { 1, 2, 3, 4 }},
+                        {"$nin", new BsonArray { 11, 12, 13, 14 }}
                     }}
                 },
                 query.ToBsonDocument());
@@ -47,15 +48,16 @@ namespace MongoDB.DriverUnitTests.Jira.CSharp137 {
         [Test]
         public void TestAndGtLt() {
             var query = Query.And(
-                Query.NotIn("value", new BsonArray(new int[] {1,2,3})),
+                Query.NotIn("value", 1, 2, 3),
                 Query.EQ("OtherValue", 1),
                 Query.GT("value", 6),
-                Query.LT("value", 20));
+                Query.LT("value", 20)
+            );
 
             Assert.AreEqual(
-                new BsonDocument() {
-                    {"value", new BsonDocument() {
-                        {"$nin", new BsonArray(new int[] {1,2,3})},
+                new BsonDocument {
+                    {"value", new BsonDocument {
+                        {"$nin", new BsonArray { 1, 2, 3 }},
                         {"$gt", 6},
                         {"$lt", 20}
                     }},
@@ -65,43 +67,51 @@ namespace MongoDB.DriverUnitTests.Jira.CSharp137 {
         }
 
         [Test]
-        [ExpectedException(
-            typeof(InvalidOperationException),
-            ExpectedMessage = "Query.And does not support combining equality comparisons with other operators (field 'value').")]
-        public void TestNoDuplicateEq() {
+        public void TestDuplicateEq() {
+            // now that server supports $and this is actually syntactically valid
             var query = Query.And(
                 Query.EQ("value", 6),
-                Query.EQ("value", 20));
+                Query.EQ("value", 20)
+            );
+            var expected = "{ '$and' : [{ 'value' : 6 }, { 'value' : 20 }] }".Replace("'", "\"");
+            var json = query.ToJson();
+            Assert.AreEqual(expected, json);
         }
 
         [Test]
-        [ExpectedException(
-            typeof(InvalidOperationException),
-            ExpectedMessage = "Query.And does not support combining equality comparisons with other operators (field 'value').")]
-        public void TestNoEq1() {
+        public void TestEq1() {
+            // now that server supports $and this is actually syntactically valid
             var query = Query.And(
                 Query.EQ("value", 6),
-                Query.LT("value", 20));
+                Query.LT("value", 20)
+            );
+            var expected = "{ '$and' : [{ 'value' : 6 }, { 'value' : { '$lt' : 20 } }] }".Replace("'", "\"");
+            var json = query.ToJson();
+            Assert.AreEqual(expected, json);
         }
 
         [Test]
-        [ExpectedException(
-            typeof(InvalidOperationException),
-            ExpectedMessage = "Query.And does not support combining equality comparisons with other operators (field 'value').")]
-        public void TestNoEq2() {
+        public void TestEq2() {
+            // now that server supports $and this is actually syntactically valid
             var query = Query.And(
                 Query.GT("value", 6),
-                Query.EQ("value", 20));
+                Query.EQ("value", 20)
+            );
+            var expected = "{ '$and' : [{ 'value' : { '$gt' : 6 } }, { 'value' : 20 }] }".Replace("'", "\"");
+            var json = query.ToJson();
+            Assert.AreEqual(expected, json);
         }
 
         [Test]
-        [ExpectedException(
-            typeof(InvalidOperationException),
-            ExpectedMessage = "Query.And does not support using the same operator more than once (field 'value', operator '$lte').")]
-        public void TestNoDuplicateOperation() {
+        public void TestDuplicateOperation() {
+            // now that server supports $and this is actually syntactically valid
             var query = Query.And(
                 Query.LTE("value", 6),
-                Query.LTE("value", 20));
+                Query.LTE("value", 20)
+            );
+            var expected = "{ '$and' : [{ 'value' : { '$lte' : 6 } }, { 'value' : { '$lte' : 20 } }] }".Replace("'", "\"");
+            var json = query.ToJson();
+            Assert.AreEqual(expected, json);
         }
     }
 }

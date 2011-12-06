@@ -43,7 +43,7 @@ namespace MongoDB.Driver.GridFS {
         public MongoGridFS(
             MongoDatabase database
         )
-            : this(database, MongoGridFSSettings.Defaults) {
+            : this(database, new MongoGridFSSettings(database)) {
         }
 
         /// <summary>
@@ -56,7 +56,7 @@ namespace MongoDB.Driver.GridFS {
             MongoGridFSSettings settings
         ) {
             this.database = database;
-            this.settings = settings.Freeze();
+            this.settings = settings.FrozenCopy();
             this.chunks = database[settings.ChunksCollectionName, settings.SafeMode];
             this.files = database[settings.FilesCollectionName, settings.SafeMode];
         }
@@ -269,7 +269,7 @@ namespace MongoDB.Driver.GridFS {
             Stream stream,
             MongoGridFSFileInfo fileInfo
         ) {
-            using (database.RequestStart()) {
+            using (database.RequestStart(database.Settings.SlaveOk)) {
                 EnsureIndexes();
 
                 string md5Client;
@@ -441,8 +441,18 @@ namespace MongoDB.Driver.GridFS {
             int maxFiles
         ) {
             // don't try to create indexes on secondaries
-            if (files.Settings.SlaveOk) {
-                return;
+            var requestConnection = database.Server.RequestConnection;
+            if (requestConnection != null) {
+                // check whether the actual server instance we are using is a primary
+                var serverInstance = requestConnection.ServerInstance;
+                if (!serverInstance.IsPrimary) {
+                    return;
+                }
+            } else {
+                // check whether we are guaranteed to use a primary
+                if (database.Settings.SlaveOk) {
+                    return;
+                }
             }
 
             // avoid round trip to count files if possible
@@ -458,14 +468,14 @@ namespace MongoDB.Driver.GridFS {
             var count = files.Count();
             if (count < maxFiles) {
                 files.EnsureIndex("filename", "uploadDate");
-                chunks.EnsureIndex("files_id", "n");
+                chunks.EnsureIndex(IndexKeys.Ascending("files_id", "n"), IndexOptions.SetUnique(true));
             } else {
                 // at least check to see if the indexes exist so we can stop calling files.Count()
                 if (files.IndexExistsByName("filename_1_uploadDate_1")) {
                     indexCache.Add(files, "filename_1_uploadDate_1");
                 }
-                if (chunks.IndexExistsByName("files_id_1_n_")) {
-                    indexCache.Add(chunks, "files_id_1_n_");
+                if (chunks.IndexExistsByName("files_id_1_n_1")) {
+                    indexCache.Add(chunks, "files_id_1_n_1");
                 }
             }
         }
@@ -734,7 +744,7 @@ namespace MongoDB.Driver.GridFS {
             string[] aliases
         ) {
             var query = Query.EQ("_id", fileInfo.Id);
-            var update = (aliases == null) ? Update.Unset("aliases") : Update.Set("aliases", BsonArray.Create((IEnumerable<string>) aliases));
+            var update = (aliases == null) ? Update.Unset("aliases") : Update.Set("aliases", BsonArray.Create(aliases));
             files.Update(query, update);
         }
 
@@ -796,7 +806,7 @@ namespace MongoDB.Driver.GridFS {
             string remoteFileName,
             MongoGridFSCreateOptions createOptions
         ) {
-            using (database.RequestStart()) {
+            using (database.RequestStart(false)) { // not slaveOk
                 EnsureIndexes();
 
                 var files_id = createOptions.Id ?? BsonObjectId.GenerateNewId();
@@ -868,7 +878,7 @@ namespace MongoDB.Driver.GridFS {
                     { "uploadDate", uploadDate },
                     { "md5", md5Server },
                     { "contentType", createOptions.ContentType }, // optional
-                    { "aliases", BsonArray.Create((IEnumerable<string>) createOptions.Aliases) }, // optional
+                    { "aliases", BsonArray.Create(createOptions.Aliases) }, // optional
                     { "metadata", createOptions.Metadata } // optional
                 };
                 files.Insert(fileInfo, settings.SafeMode);

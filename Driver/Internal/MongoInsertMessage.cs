@@ -28,6 +28,8 @@ namespace MongoDB.Driver.Internal {
     internal class MongoInsertMessage : MongoRequestMessage {
         #region private fields
         private string collectionFullName;
+        private bool checkElementNames;
+        private InsertFlags flags;
         private int firstDocumentStartPosition;
         private int lastDocumentStartPosition;
         #endregion
@@ -35,10 +37,14 @@ namespace MongoDB.Driver.Internal {
         #region constructors
         internal MongoInsertMessage(
             BsonBinaryWriterSettings writerSettings,
-            string collectionFullName
+            string collectionFullName,
+            bool checkElementNames,
+            InsertFlags flags
         )
             : base(MessageOpcode.Insert, null, writerSettings) {
             this.collectionFullName = collectionFullName;
+            this.checkElementNames = checkElementNames;
+            this.flags = flags;
         }
         #endregion
 
@@ -49,7 +55,7 @@ namespace MongoDB.Driver.Internal {
         ) {
             lastDocumentStartPosition = buffer.Position;
             using (var bsonWriter = BsonWriter.Create(buffer, writerSettings)) {
-                bsonWriter.CheckElementNames = true;
+                bsonWriter.CheckElementNames = checkElementNames;
                 BsonSerializer.Serialize(bsonWriter, nominalType, document, DocumentSerializationOptions.SerializeIdFirstInstance);
             }
             BackpatchMessageLength();
@@ -76,7 +82,7 @@ namespace MongoDB.Driver.Internal {
 
         #region protected methods
         protected override void WriteBody() {
-            buffer.WriteInt32(0); // reserved
+            buffer.WriteInt32((int) flags);
             buffer.WriteCString(collectionFullName);
             firstDocumentStartPosition = buffer.Position;
             // documents to be added later by calling AddDocument

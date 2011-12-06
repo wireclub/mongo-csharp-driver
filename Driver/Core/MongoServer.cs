@@ -33,15 +33,19 @@ namespace MongoDB.Driver {
         #region private static fields
         private static object staticLock = new object();
         private static Dictionary<MongoServerSettings, MongoServer> servers = new Dictionary<MongoServerSettings, MongoServer>();
+        private static int nextSequentialId;
         private static int maxServerCount = 100;
         #endregion
 
         #region private fields
         private object serverLock = new object();
-        private object requestsLock = new object();
         private MongoServerSettings settings;
+        private int sequentialId;
         private MongoServerState state = MongoServerState.Disconnected;
-        private List<MongoServerInstance> instances = new List<MongoServerInstance>(); // serves as its own lock
+        private object stateLock = new object(); // synchronize state changes
+        private int connectionAttempt;
+        private List<MongoServerInstance> instances = new List<MongoServerInstance>();
+        private MongoServerInstance primary;
         private string replicaSetName;
         private int loadBalancingInstanceIndex; // used to distribute reads across secondaries in round robin fashion
         private Dictionary<MongoDatabaseSettings, MongoDatabase> databases = new Dictionary<MongoDatabaseSettings, MongoDatabase>();
@@ -58,7 +62,21 @@ namespace MongoDB.Driver {
         public MongoServer(
             MongoServerSettings settings
         ) {
-            this.settings = settings.Freeze();
+            this.settings = settings.FrozenCopy();
+            this.sequentialId = Interlocked.Increment(ref nextSequentialId);
+            // Console.WriteLine("MongoServer[{0}]: {1}", sequentialId, settings);
+
+            if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                // initialize the set of server instances from the seed list (might change once we connect)
+                foreach (var address in settings.Servers) {
+                    var serverInstance = new MongoServerInstance(this, address);
+                    AddInstance(serverInstance);
+                }
+            } else {
+                // initialize the server instance to the first (or only) address provided
+                var serverInstance = new MongoServerInstance(this, settings.Servers.First());
+                AddInstance(serverInstance);
+            }
         }
         #endregion
 
@@ -163,14 +181,26 @@ namespace MongoDB.Driver {
         }
 
         /// <summary>
+        /// Unregisters all servers from the dictionary used by Create to remember which servers have already been created.
+        /// </summary>
+        public static void UnregisterAllServers() {
+            lock (staticLock) {
+                var serverList = servers.Values.ToList();
+                foreach (var server in serverList) {
+                    UnregisterServer(server);
+                }
+            }
+        }
+
+        /// <summary>
         /// Unregisters a server from the dictionary used by Create to remember which servers have already been created.
         /// </summary>
         /// <param name="server">The server to unregister.</param>
         public static void UnregisterServer(
             MongoServer server
         ) {
-            try { server.Disconnect(); } catch { } // ignore exceptions
             lock (staticLock) {
+                try { server.Disconnect(); } catch { } // ignore exceptions
                 servers.Remove(server.settings);
             }
         }
@@ -210,7 +240,7 @@ namespace MongoDB.Driver {
         /// </summary>
         public MongoServerInstance[] Arbiters {
             get {
-                lock (instances) {
+                lock (stateLock) {
                     return instances.Where(i => i.IsArbiter).ToArray();
                 }
             }
@@ -221,17 +251,26 @@ namespace MongoDB.Driver {
         /// </summary>
         public MongoServerBuildInfo BuildInfo {
             get {
-                MongoServerInstance instance;
-                if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
-                    instance = Primary;
-                    if (instance == null) {
-                        throw new InvalidOperationException("Primary not found.");
+                lock (stateLock) {
+                    MongoServerInstance instance;
+                    if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                        instance = Primary;
+                        if (instance == null) {
+                            throw new InvalidOperationException("Primary not found.");
+                        }
+                    } else {
+                        instance = instances.First();
                     }
-                } else {
-                    instance = instances.First();
+                    return instance.BuildInfo;
                 }
-                return instance.BuildInfo;
             }
+        }
+
+        /// <summary>
+        /// Gets the most recent connection attempt number.
+        /// </summary>
+        public int ConnectionAttempt {
+            get { return connectionAttempt; }
         }
 
         /// <summary>
@@ -246,8 +285,13 @@ namespace MongoDB.Driver {
         /// </summary>
         public virtual MongoServerInstance Instance {
             get {
-                lock (instances) {
-                    return instances.SingleOrDefault();
+                lock (stateLock) {
+                    switch (instances.Count) {
+                        case 0: return null;
+                        case 1: return instances[0];
+                        default:
+                            throw new InvalidOperationException("Instance property cannot be used when there is more than one instance.");
+                    }
                 }
             }
         }
@@ -257,7 +301,7 @@ namespace MongoDB.Driver {
         /// </summary>
         public virtual MongoServerInstance[] Instances {
             get {
-                lock (instances) {
+                lock (stateLock) {
                     return instances.ToArray();
                 }
             }
@@ -268,7 +312,7 @@ namespace MongoDB.Driver {
         /// </summary>
         public MongoServerInstance[] Passives {
             get {
-                lock (instances) {
+                lock (stateLock) {
                     return instances.Where(i => i.IsPassive).ToArray();
                 }
             }
@@ -279,8 +323,8 @@ namespace MongoDB.Driver {
         /// </summary>
         public MongoServerInstance Primary {
             get {
-                lock (instances) {
-                    return instances.Where(i => i.IsPrimary).SingleOrDefault();
+                lock (stateLock) {
+                    return primary;
                 }
             }
         }
@@ -294,12 +338,29 @@ namespace MongoDB.Driver {
         }
 
         /// <summary>
+        /// Gets the connection reserved by the current RequestStart scope (null if not in the scope of a RequestStart).
+        /// </summary>
+        public virtual MongoConnection RequestConnection {
+            get {
+                lock (serverLock) {
+                    int threadId = Thread.CurrentThread.ManagedThreadId;
+                    Request request;
+                    if (requests.TryGetValue(threadId, out request)) {
+                        return request.Connection;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// Gets the RequestStart nesting level for the current thread.
         /// </summary>
         public virtual int RequestNestingLevel {
             get {
-                int threadId = Thread.CurrentThread.ManagedThreadId;
-                lock (requestsLock) {
+                lock (serverLock) {
+                    int threadId = Thread.CurrentThread.ManagedThreadId;
                     Request request;
                     if (requests.TryGetValue(threadId, out request)) {
                         return request.NestingLevel;
@@ -315,10 +376,17 @@ namespace MongoDB.Driver {
         /// </summary>
         public MongoServerInstance[] Secondaries {
             get {
-                lock (instances) {
+                lock (stateLock) {
                     return instances.Where(i => i.IsSecondary).ToArray();
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the unique sequential Id for this server.
+        /// </summary>
+        public virtual int SequentialId {
+            get { return sequentialId; }
         }
 
         /// <summary>
@@ -419,24 +487,91 @@ namespace MongoDB.Driver {
         /// Connects to the server. Normally there is no need to call this method as
         /// the driver will connect to the server automatically when needed.
         /// </summary>
+        /// <param name="waitFor">What to wait for before returning (when connecting to a replica set).</param>
+        public virtual void Connect(
+            ConnectWaitFor waitFor
+        ) {
+            Connect(settings.ConnectTimeout, waitFor);
+        }
+
+        /// <summary>
+        /// Connects to the server. Normally there is no need to call this method as
+        /// the driver will connect to the server automatically when needed.
+        /// </summary>
         /// <param name="timeout">How long to wait before timing out.</param>
         public virtual void Connect(
             TimeSpan timeout
         ) {
+            var waitFor = settings.SlaveOk ? ConnectWaitFor.AnySlaveOk : ConnectWaitFor.Primary;
+            Connect(timeout, waitFor);
+        }
+
+        /// <summary>
+        /// Connects to the server. Normally there is no need to call this method as
+        /// the driver will connect to the server automatically when needed.
+        /// </summary>
+        /// <param name="timeout">How long to wait before timing out.</param>
+        /// <param name="waitFor">What to wait for before returning (when connecting to a replica set).</param>
+        public virtual void Connect(
+            TimeSpan timeout,
+            ConnectWaitFor waitFor
+        ) {
             lock (serverLock) {
-                if (state == MongoServerState.Disconnected) {
-                    switch (settings.ConnectionMode) {
-                        case ConnectionMode.Direct:
-                            var directConnector = new DirectConnector(this);
+                switch (settings.ConnectionMode) {
+                    case ConnectionMode.Direct:
+                        if (state == MongoServerState.Disconnected) {
+                            connectionAttempt += 1;
+                            // Console.WriteLine("MongoServer[{0}]: Connect(waitFor={1},attempt={2}).", sequentialId, waitFor, connectionAttempt);
+                            var directConnector = new DirectConnector(this, connectionAttempt);
                             directConnector.Connect(timeout);
-                            break;
-                        case ConnectionMode.ReplicaSet:
-                            var replicaSetConnector = new ReplicaSetConnector(this);
-                            replicaSetConnector.Connect(timeout);
-                            break;
-                        default:
-                            throw new MongoInternalException("Invalid ConnectionMode.");
-                    }
+                        }
+                        return;
+
+                    case ConnectionMode.ReplicaSet:
+                        var timeoutAt = DateTime.UtcNow + timeout;
+                        while (true) {
+                            lock (stateLock) {
+                                switch (waitFor) {
+                                    case ConnectWaitFor.All:
+                                        if (instances.All(i => i.State == MongoServerState.Connected)) {
+                                            return;
+                                        }
+                                        break;
+                                    case ConnectWaitFor.AnySlaveOk:
+                                        if (instances.Any(i => i.State == MongoServerState.Connected && (i.IsPrimary || i.IsSecondary || i.IsPassive))) {
+                                            return;
+                                        }
+                                        break;
+                                    case ConnectWaitFor.Primary:
+                                        if (primary != null && primary.State == MongoServerState.Connected) {
+                                            return;
+                                        }
+                                        break;
+                                    default:
+                                        throw new ArgumentException("Invalid ConnectWaitMode.");
+                                }
+                            }
+
+                            // a replica set connector might have exited early and still be working in the background
+                            if (state == MongoServerState.Connecting) {
+                                if (DateTime.UtcNow > timeoutAt) {
+                                    throw new TimeoutException("Timeout while connecting to server.");
+                                }
+                                Thread.Sleep(TimeSpan.FromMilliseconds(20));
+                            } else {
+                                break;
+                            }
+                        }
+
+                        connectionAttempt += 1;
+                        // Console.WriteLine("MongoServer[{0}]: Connect(waitFor={1},attempt={2}).", sequentialId, waitFor, connectionAttempt);
+                        var replicaSetConnector = new ReplicaSetConnector(this, connectionAttempt);
+                        var remainingTimeout = timeoutAt - DateTime.UtcNow;
+                        replicaSetConnector.Connect(remainingTimeout, waitFor);
+                        return;
+
+                    default:
+                        throw new MongoInternalException("Invalid ConnectionMode.");
                 }
             }
         }
@@ -464,11 +599,8 @@ namespace MongoDB.Driver {
             string databaseName
         ) {
             return new MongoDatabaseSettings(
-                databaseName,
-                settings.DefaultCredentials,
-                settings.GuidRepresentation,
-                settings.SafeMode,
-                settings.SlaveOk
+                this,
+                databaseName
             );
         }
 
@@ -488,14 +620,16 @@ namespace MongoDB.Driver {
         /// you should be sure to have a good reason to call it.
         /// </summary>
         public virtual void Disconnect() {
-            // normally called from a connection when there is a SocketException
-            // but anyone can call it if they want to close all sockets to the server
             lock (serverLock) {
-                if (state == MongoServerState.Connected) {
-                    lock (instances) {
-                        foreach (var instance in instances) {
+                if (state != MongoServerState.Disconnected) {
+                    // Console.WriteLine("MongoServer[{0}]: Disconnect called.", sequentialId);
+                    state = MongoServerState.Disconnecting;
+                    try {
+                        foreach (var instance in Instances) {
                             instance.Disconnect();
                         }
+                    } finally {
+                        state = MongoServerState.Disconnected;
                     }
                 }
             }
@@ -511,7 +645,9 @@ namespace MongoDB.Driver {
         ) {
             MongoDatabase database = GetDatabase(databaseName);
             var command = new CommandDocument("dropDatabase", 1);
-            return database.RunCommand(command);
+            var result = database.RunCommand(command);
+            indexCache.Reset(databaseName);
+            return result;
         }
 
         /// <summary>
@@ -621,7 +757,7 @@ namespace MongoDB.Driver {
         public virtual MongoDatabase GetDatabase(
             string databaseName
         ) {
-            var databaseSettings = CreateDatabaseSettings(databaseName);
+            var databaseSettings = new MongoDatabaseSettings(this, databaseName);
             return GetDatabase(databaseSettings);
         }
 
@@ -636,8 +772,9 @@ namespace MongoDB.Driver {
             string databaseName,
             MongoCredentials credentials
         ) {
-            var databaseSettings = CreateDatabaseSettings(databaseName);
-            databaseSettings.Credentials = credentials;
+            var databaseSettings = new MongoDatabaseSettings(this, databaseName) {
+                Credentials = credentials
+            };
             return GetDatabase(databaseSettings);
         }
 
@@ -654,9 +791,10 @@ namespace MongoDB.Driver {
             MongoCredentials credentials,
             SafeMode safeMode
         ) {
-            var databaseSettings = CreateDatabaseSettings(databaseName);
-            databaseSettings.Credentials = credentials;
-            databaseSettings.SafeMode = safeMode;
+            var databaseSettings = new MongoDatabaseSettings(this, databaseName) {
+                Credentials = credentials,
+                SafeMode = safeMode
+            };
             return GetDatabase(databaseSettings);
         }
 
@@ -671,8 +809,9 @@ namespace MongoDB.Driver {
             string databaseName,
             SafeMode safeMode
         ) {
-            var databaseSettings = CreateDatabaseSettings(databaseName);
-            databaseSettings.SafeMode = safeMode;
+            var databaseSettings = new MongoDatabaseSettings(this, databaseName) {
+                SafeMode = safeMode
+            };
             return GetDatabase(databaseSettings);
         }
 
@@ -704,11 +843,12 @@ namespace MongoDB.Driver {
         }
 
         /// <summary>
-        /// Checks whether the server is alive (throws an exception if not).
+        /// Checks whether the server is alive (throws an exception if not). If server is a replica set, pings all members one at a time.
         /// </summary>
         public virtual void Ping() {
-            var command = new CommandDocument("ping", 1);
-            RunAdminCommand(command);
+            foreach (var instance in instances.ToArray()) {
+                instance.Ping();
+            }
         }
 
         /// <summary>
@@ -728,23 +868,17 @@ namespace MongoDB.Driver {
         /// to put the return value of RequestStart in a using statement.
         /// </summary>
         public virtual void RequestDone() {
-            int threadId = Thread.CurrentThread.ManagedThreadId;
-            MongoConnection connection = null;
-            lock (requestsLock) {
+            lock (serverLock) {
+                int threadId = Thread.CurrentThread.ManagedThreadId;
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
                     if (--request.NestingLevel == 0) {
-                        connection = request.Connection;
                         requests.Remove(threadId);
+                        ReleaseConnection(request.Connection);
                     }
                 } else {
                     throw new InvalidOperationException("Thread is not in a request (did you call RequestStart?).");
                 }
-            }
-
-            // release the connection outside of the lock
-            if (connection != null) {
-                ReleaseConnection(connection);
             }
         }
 
@@ -758,21 +892,35 @@ namespace MongoDB.Driver {
         public virtual IDisposable RequestStart(
             MongoDatabase initialDatabase
         ) {
-            int threadId = Thread.CurrentThread.ManagedThreadId;
-            lock (requestsLock) {
+            return RequestStart(initialDatabase, false); // not slaveOk
+        }
+
+        /// <summary>
+        /// Lets the server know that this thread is about to begin a series of related operations that must all occur
+        /// on the same connection. The return value of this method implements IDisposable and can be placed in a
+        /// using statement (in which case RequestDone will be called automatically when leaving the using statement).
+        /// </summary>
+        /// <param name="initialDatabase">One of the databases involved in the related operations.</param>
+        /// <param name="slaveOk">Whether queries should be sent to secondary servers.</param>
+        /// <returns>A helper object that implements IDisposable and calls <see cref="RequestDone"/> from the Dispose method.</returns>
+        public virtual IDisposable RequestStart(
+            MongoDatabase initialDatabase,
+            bool slaveOk
+        ) {
+            lock (serverLock) {
+                int threadId = Thread.CurrentThread.ManagedThreadId;
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
+                    if (!slaveOk && request.SlaveOk) {
+                        throw new InvalidOperationException("A nested call to RequestStart with slaveOk false is not allowed when the original call to RequestStart was made with slaveOk true.");
+                    }
                     request.NestingLevel++;
-                    return new RequestStartResult(this);
+                } else {
+                    var connection = AcquireConnection(initialDatabase, slaveOk);
+                    request = new Request(connection, slaveOk);
+                    requests.Add(threadId, request);
                 }
-            }
 
-            // get the connection outside of the lock
-            var connection = AcquireConnection(initialDatabase, false); // not slaveOk
-
-            lock (requestsLock) {
-                var request = new Request(connection);
-                requests.Add(threadId, request);
                 return new RequestStartResult(this);
             }
         }
@@ -870,6 +1018,17 @@ namespace MongoDB.Driver {
                 }
             }
         }
+
+        /// <summary>
+        /// Verifies the state of the server (in the case of a replica set all members are contacted one at a time).
+        /// </summary>
+        public void VerifyState() {
+            lock (serverLock) {
+                foreach (var instance in instances) {
+                    instance.VerifyState();
+                }
+            }
+        }
         #endregion
 
         #region internal methods
@@ -877,19 +1036,19 @@ namespace MongoDB.Driver {
             MongoDatabase database,
             bool slaveOk
         ) {
-            // if a thread has called RequestStart it wants all operations to take place on the same connection
-            int threadId = Thread.CurrentThread.ManagedThreadId;
-            lock (requestsLock) {
+            lock (serverLock) {
+                // if a thread has called RequestStart it wants all operations to take place on the same connection
+                int threadId = Thread.CurrentThread.ManagedThreadId;
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
+                    if (!slaveOk && request.SlaveOk) {
+                        throw new InvalidOperationException("A call to AcquireConnection with slaveOk false is not allowed when the current RequestStart was made with slaveOk true.");
+                    }
                     request.Connection.CheckAuthentication(database); // will throw exception if authentication fails
                     return request.Connection;
                 }
-            }
 
-            // get lock so serverInstance doesn't get disconnected before AcquireConnection is called
-            lock (serverLock) {
-                var serverInstance = GetServerInstance(slaveOk);
+                var serverInstance = ChooseServerInstance(slaveOk);
                 return serverInstance.AcquireConnection(database);
             }
         }
@@ -898,9 +1057,9 @@ namespace MongoDB.Driver {
             MongoDatabase database,
             MongoServerInstance serverInstance
         ) {
-            // if a thread has called RequestStart it wants all operations to take place on the same connection
-            int threadId = Thread.CurrentThread.ManagedThreadId;
-            lock (requestsLock) {
+            lock (serverLock) {
+                // if a thread has called RequestStart it wants all operations to take place on the same connection
+                int threadId = Thread.CurrentThread.ManagedThreadId;
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
                     if (request.Connection.ServerInstance != serverInstance) {
@@ -914,72 +1073,81 @@ namespace MongoDB.Driver {
                     request.Connection.CheckAuthentication(database); // will throw exception if authentication fails
                     return request.Connection;
                 }
-            }
 
-            return serverInstance.AcquireConnection(database);
+                return serverInstance.AcquireConnection(database);
+            }
         }
 
         internal void AddInstance(
             MongoServerInstance instance
         ) {
-            lock (instances) {
+            lock (stateLock) {
+                // Console.WriteLine("MongoServer[{0}]: Add MongoServerInstance[{1}].", sequentialId, instance.SequentialId);
                 if (instances.Any(i => i.Address == instance.Address)) {
                     var message = string.Format("A server instance already exists for address '{0}'.", instance.Address);
                     throw new ArgumentException(message);
                 }
                 instances.Add(instance);
                 instance.StateChanged += InstanceStateChanged;
-                InstanceStateChanged(null, null); // adding an instance can change server state
+                InstanceStateChanged(instance, null); // adding an instance can change server state
             }
         }
 
-        internal void ClearInstances() {
-            lock (instances) {
-                instances.ForEach(i => { i.StateChanged -= InstanceStateChanged; });
-                instances.Clear();
-                state = MongoServerState.Disconnected;
-            }
-        }
-
-        internal MongoServerInstance GetServerInstance(
+        internal MongoServerInstance ChooseServerInstance(
             bool slaveOk
         ) {
             lock (serverLock) {
-                if (state == MongoServerState.Disconnected) {
-                    Connect();
-                }
-
-                if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
-                    if (slaveOk) {
-                        // round robin the connected secondaries, fall back to primary if no secondary found
-                        lock (instances) {
-                            for (int i = 0; i < instances.Count; i++) {
-                                loadBalancingInstanceIndex = (loadBalancingInstanceIndex + 1) % instances.Count; // round robin
-                                var instance = instances[loadBalancingInstanceIndex];
-                                if (instance.State == MongoServerState.Connected && (instance.IsSecondary || instance.IsPassive)) {
-                                    return instance;
+                // first try to choose an instance given the current state
+                // and only try to verify state or connect if necessary
+                for (int attempt = 1; attempt <= 2; attempt++) {
+                    if (settings.ConnectionMode == ConnectionMode.ReplicaSet) {
+                        if (slaveOk) {
+                            // round robin the connected secondaries, fall back to primary if no secondary found
+                            lock (stateLock) {
+                                for (int i = 0; i < instances.Count; i++) {
+                                    // round robin (use if statement instead of mod because instances.Count can change
+                                    if (++loadBalancingInstanceIndex >= instances.Count) {
+                                        loadBalancingInstanceIndex = 0;
+                                    }
+                                    var instance = instances[loadBalancingInstanceIndex];
+                                    if (instance.State == MongoServerState.Connected && (instance.IsSecondary || instance.IsPassive)) {
+                                        return instance;
+                                    }
                                 }
                             }
                         }
+
+                        lock (stateLock) {
+                            if (primary != null && primary.State == MongoServerState.Connected) {
+                                return primary;
+                            }
+                        }
+                    } else {
+                        var instance = Instance;
+                        if (instance.State == MongoServerState.Connected) {
+                            return instance;
+                        }
                     }
 
-                    var primary = Primary;
-                    if (primary == null) {
-                        throw new MongoConnectionException("Primary server not found.");
+                    if (attempt == 1) {
+                        if (state == MongoServerState.Unknown) {
+                            VerifyUnknownStates();
+                        }
+
+                        var waitFor = slaveOk ? ConnectWaitFor.AnySlaveOk : ConnectWaitFor.Primary;
+                        Connect(waitFor); // will do nothing if already sufficiently connected 
                     }
-                    return primary;
-                } else {
-                    return instances.First();
                 }
+                throw new MongoConnectionException("Unable to choose a server instance.");
             }
         }
 
         internal void ReleaseConnection(
             MongoConnection connection
         ) {
-            // if the thread has called RequestStart just verify that the connection it is releasing is the right one
-            int threadId = Thread.CurrentThread.ManagedThreadId;
-            lock (requestsLock) {
+            lock (serverLock) {
+                // if the thread has called RequestStart just verify that the connection it is releasing is the right one
+                int threadId = Thread.CurrentThread.ManagedThreadId;
                 Request request;
                 if (requests.TryGetValue(threadId, out request)) {
                     if (connection != request.Connection) {
@@ -987,20 +1155,19 @@ namespace MongoDB.Driver {
                     }
                     return; // hold on to the connection until RequestDone is called
                 }
-            }
 
-            // the connection might belong to a connection pool that has already been discarded
-            // so always release it to the connection pool it came from and not the current pool
-            connection.ConnectionPool.ReleaseConnection(connection);
+                connection.ServerInstance.ReleaseConnection(connection);
+            }
         }
 
         internal void RemoveInstance(
             MongoServerInstance instance
         ) {
-            lock (instances) {
+            lock (stateLock) {
+                // Console.WriteLine("MongoServer[{0}]: Remove MongoServerInstance[{1}].", sequentialId, instance.SequentialId);
                 instance.StateChanged -= InstanceStateChanged;
                 instances.Remove(instance);
-                InstanceStateChanged(null, null); // removing an instance can change server state
+                InstanceStateChanged(instance, null); // removing an instance can change server state
             }
         }
         #endregion
@@ -1010,29 +1177,53 @@ namespace MongoDB.Driver {
             object sender,
             object args
         ) {
-            lock (instances) {
-                if (instances.Any(i => i.State == MongoServerState.Connected && i.IsPrimary)) {
-                    // Console.WriteLine("Server state: Connected");
-                    state = MongoServerState.Connected;
-                    return;
-                }
+            lock (stateLock) {
+                var instance = (MongoServerInstance) sender;
+                // Console.WriteLine("MongoServer[{0}]: MongoServerInstance[{1}] state changed.", sequentialId, instance.SequentialId);
 
-                if (settings.SlaveOk) {
-                    if (instances.Any(i => i.State == MongoServerState.Connected && (i.IsSecondary || i.IsPassive))) {
-                        // Console.WriteLine("Server state: Connected");
-                        state = MongoServerState.Connected;
-                        return;
+                if (instance.IsPrimary && instance.State == MongoServerState.Connected && instances.Contains(instance)) {
+                    if (primary != instance) {
+                        primary = instance; // new primary
+                    }
+                } else {
+                    if (primary == instance) {
+                        primary = null; // no primary until we find one again
                     }
                 }
 
-                if (instances.Any(i => i.State == MongoServerState.Connecting)) {
-                    // Console.WriteLine("Server state: Connecting");
-                    state = MongoServerState.Connecting;
-                    return;
+                // the order of the tests is significant
+                // and resolves ambiguities when more than one state might match
+                if (state == MongoServerState.Disconnecting) {
+                    if (instances.All(i => i.State == MongoServerState.Disconnected)) {
+                        state = MongoServerState.Disconnected;
+                    }
+                } else {
+                    if (instances.All(i => i.State == MongoServerState.Disconnected)) {
+                        state = MongoServerState.Disconnected;
+                    } else if (instances.All(i => i.State == MongoServerState.Connected)) {
+                        state = MongoServerState.Connected;
+                    } else if (instances.Any(i => i.State == MongoServerState.Connecting)) {
+                        state = MongoServerState.Connecting;
+                    } else if (instances.Any(i => i.State == MongoServerState.Unknown)) {
+                        state = MongoServerState.Unknown;
+                    } else if (instances.Any(i => i.State == MongoServerState.Connected)) {
+                        state = MongoServerState.ConnectedToSubset;
+                    } else {
+                        throw new MongoInternalException("Unexpected server instance states.");
+                    }
                 }
 
-                // Console.WriteLine("Server state: Disconnected");
-                state = MongoServerState.Disconnected;
+                // Console.WriteLine("MongoServer[{0}]: State={1}, Primary={2}.", sequentialId, state, (primary == null) ? "null" : primary.Address.ToString());
+            }
+        }
+
+        private void VerifyUnknownStates() {
+            lock (serverLock) {
+                foreach (var instance in instances) {
+                    if (instance.State == MongoServerState.Unknown) {
+                        instance.VerifyState();
+                    }
+                }
             }
         }
         #endregion
@@ -1041,14 +1232,17 @@ namespace MongoDB.Driver {
         private class Request {
             #region private fields
             private MongoConnection connection;
+            private bool slaveOk;
             private int nestingLevel;
             #endregion
 
             #region constructors
             public Request(
-                MongoConnection connection
+                MongoConnection connection,
+                bool slaveOk
             ) {
                 this.connection = connection;
+                this.slaveOk = slaveOk;
                 this.nestingLevel = 1;
             }
             #endregion
@@ -1062,6 +1256,11 @@ namespace MongoDB.Driver {
             public int NestingLevel {
                 get { return nestingLevel; }
                 set { nestingLevel = value; }
+            }
+
+            public bool SlaveOk {
+                get { return slaveOk; }
+                internal set { slaveOk = value; }
             }
             #endregion
         }

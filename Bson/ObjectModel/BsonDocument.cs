@@ -73,60 +73,24 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
-        /// Initializes a new instance of the BsonDocument class and adds new elements from an <see cref="IDictionary">IDictionary</see>.
+        /// Initializes a new instance of the BsonDocument class and adds new elements from a dictionary of key/value pairs.
         /// </summary>
-        /// <param name="dictionary">The dictionary.</param>
+        /// <param name="dictionary">A dictionary to initialize the document from.</param>
         public BsonDocument(
-            IDictionary dictionary
+            Dictionary<string, object> dictionary
         )
             : base(BsonType.Document) {
             Add(dictionary);
         }
 
         /// <summary>
-        /// Initializes a new instance of the BsonDocument class and adds new elements from an <see cref="IDictionary">IDictionary</see>.
+        /// Initializes a new instance of the BsonDocument class and adds new elements from a dictionary of key/value pairs.
         /// </summary>
-        /// <remarks>
-        /// The intended usage of this constructor is to ease the use of the Bson library and MongoDB driver with Windows Powershell.
-        /// Powershell has native support for Hashtables via its <c>@{"key1"= "value1; "key2"= "value2; . . .}</c> notation.
-        /// </remarks>
-        /// <param name="dictionary">
-        /// A Dictionary. The keys in this dictionary must be strings. The values will be mapped to BsonValues.
-        /// </param>
+        /// <param name="dictionary">A dictionary to initialize the document from.</param>
         /// <param name="keys">A list of keys to select values from the dictionary.</param>
-        /// <example>
-        /// Using this constructor to create a <c>BsonDocument</c> with PowerShell's Hashtable notation:
-        /// <code lang="powershell">
-        /// # We assume that the driver is installed via the MSI.
-        /// [string] $mongoDriverPath = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\.NETFramework\v3.5\AssemblyFoldersEx\MongoDB CSharpDriver 1.1").'(default)';
-        /// Add-Type -Path "$($mongoDriverPath)\MongoDB.Bson.dll";
-        /// [MongoDB.Bson.BsonDocument] $doc = @{
-        ///     "_id" = [MongoDB.Bson.ObjectId]::GenerateNewId();
-        ///     "FirstName" = "Justin";
-        ///     "LastName" = "Dearing";
-        ///     "PhoneNumbers" = [MongoDB.Bson.BsonDocument] @{
-        ///         'Home' = '718-641-2098';
-        ///         'Mobile' = '646-288-5621';
-        ///     };
-        /// };
-        /// $doc;
-        /// </code>
-        /// <b>Output:</b>
-        /// <pre>
-        /// Name                                                                                                        Value
-        /// ----                                                                                                        -----
-        /// _id                                                                                                         4d711f54d9a8b11fe4d4395d
-        /// FirstName                                                                                                   Justin
-        /// LastName                                                                                                    Dearing
-        /// PhoneNumbers                                                                                                {Mobile=646-288-5621, Home=718-641-2098}
-        /// </pre>
-        /// <br/>
-        /// </example>
-        /// <seealso cref="Hashtable" />
-        /// <seealso cref="IDictionary" />
         public BsonDocument(
-            IDictionary dictionary,
-            IEnumerable keys
+            Dictionary<string, object> dictionary,
+            IEnumerable<string> keys
         )
             : base(BsonType.Document) {
             Add(dictionary, keys);
@@ -151,6 +115,30 @@ namespace MongoDB.Bson {
         public BsonDocument(
             IDictionary<string, object> dictionary,
             IEnumerable<string> keys
+        )
+            : base(BsonType.Document) {
+            Add(dictionary, keys);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonDocument class and adds new elements from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">A dictionary to initialize the document from.</param>
+        public BsonDocument(
+            IDictionary dictionary
+        )
+            : base(BsonType.Document) {
+            Add(dictionary);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonDocument class and adds new elements from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">A dictionary to initialize the document from.</param>
+        /// <param name="keys">A list of keys to select values from the dictionary.</param>
+        public BsonDocument(
+            IDictionary dictionary,
+            IEnumerable keys
         )
             : base(BsonType.Document) {
             Add(dictionary, keys);
@@ -189,6 +177,35 @@ namespace MongoDB.Bson {
         )
             : base(BsonType.Document) {
             Add(name, value);
+        }
+        #endregion
+
+        #region public operators
+        /// <summary>
+        /// Compares two BsonDocument values.
+        /// </summary>
+        /// <param name="lhs">The first BsonDocument.</param>
+        /// <param name="rhs">The other BsonDocument.</param>
+        /// <returns>True if the two BsonDocument values are not equal according to ==.</returns>
+        public static bool operator !=(
+            BsonDocument lhs,
+            BsonDocument rhs
+        ) {
+            return !(lhs == rhs);
+        }
+
+        /// <summary>
+        /// Compares two BsonDocument values.
+        /// </summary>
+        /// <param name="lhs">The first BsonDocument.</param>
+        /// <param name="rhs">The other BsonDocument.</param>
+        /// <returns>True if the two BsonDocument values are equal according to ==.</returns>
+        public static bool operator ==(
+            BsonDocument lhs,
+            BsonDocument rhs
+        ) {
+            if (object.ReferenceEquals(lhs, null)) { return object.ReferenceEquals(rhs, null); }
+            return lhs.Equals(rhs);
         }
         #endregion
 
@@ -449,6 +466,62 @@ namespace MongoDB.Bson {
         /// <param name="dictionary">The dictionary.</param>
         /// <returns>The document (so method calls can be chained).</returns>
         public BsonDocument Add(
+            Dictionary<string, object> dictionary
+        ) {
+            return Add((IDictionary<string, object>) dictionary);
+        }
+
+        /// <summary>
+        /// Adds elements to the document from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">The dictionary.</param>
+        /// <param name="keys">Which keys of the hash table to add.</param>
+        /// <returns>The document (so method calls can be chained).</returns>
+        public BsonDocument Add(
+            Dictionary<string, object> dictionary,
+            IEnumerable<string> keys
+        ) {
+            return Add((IDictionary<string, object>) dictionary, keys);
+        }
+
+        /// <summary>
+        /// Adds elements to the document from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">The dictionary.</param>
+        /// <returns>The document (so method calls can be chained).</returns>
+        public BsonDocument Add(
+            IDictionary<string, object> dictionary
+        ) {
+            if (dictionary != null) {
+                Add(dictionary, dictionary.Keys);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Adds elements to the document from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">The dictionary.</param>
+        /// <param name="keys">Which keys of the hash table to add.</param>
+        /// <returns>The document (so method calls can be chained).</returns>
+        public BsonDocument Add(
+            IDictionary<string, object> dictionary,
+            IEnumerable<string> keys
+        ) {
+            if (dictionary != null) {
+                foreach (var key in keys) {
+                    Add(key, BsonValue.Create(dictionary[key]));
+                }
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Adds elements to the document from a dictionary of key/value pairs.
+        /// </summary>
+        /// <param name="dictionary">The dictionary.</param>
+        /// <returns>The document (so method calls can be chained).</returns>
+        public BsonDocument Add(
             IDictionary dictionary
         ) {
             if (dictionary != null) {
@@ -476,38 +549,6 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
-        /// Adds elements to the document from a dictionary of key/value pairs.
-        /// </summary>
-        /// <param name="dictionary">The dictionary.</param>
-        /// <returns>The document (so method calls can be chained).</returns>
-        public BsonDocument Add(
-            IDictionary<string, object> dictionary
-        ) {
-            if (dictionary != null) {
-                Add(dictionary, dictionary.Keys);
-            }
-            return this;
-        }
-
-        /// <summary>
-        /// Adds elements to the document from a dictionary of key/value pairs.
-        /// </summary>
-        /// <param name="dictionary">The dictionary.</param>
-        /// <param name="keys">Which keys of the dictionary to add.</param>
-        /// <returns>The document (so method calls can be chained).</returns>
-        public BsonDocument Add(
-            IDictionary<string, object> dictionary,
-            IEnumerable<string> keys
-        ) {
-            if (dictionary != null) {
-                foreach (var key in keys) {
-                    Add(key, BsonValue.Create(dictionary[key]));
-                }
-            }
-            return this;
-        }
-
-        /// <summary>
         /// Adds a list of elements to the document.
         /// </summary>
         /// <param name="elements">The list of elements.</param>
@@ -521,6 +562,17 @@ namespace MongoDB.Bson {
                 }
             }
             return this;
+        }
+
+        /// <summary>
+        /// Adds a list of elements to the document.
+        /// </summary>
+        /// <param name="elements">The list of elements.</param>
+        /// <returns>The document (so method calls can be chained).</returns>
+        public BsonDocument Add(
+            params BsonElement[] elements
+        ) {
+            return Add((IEnumerable<BsonElement>) elements);
         }
 
         /// <summary>
@@ -709,7 +761,7 @@ namespace MongoDB.Bson {
         public bool Equals(
             BsonDocument rhs
         ) {
-            if (rhs == null) { return false; }
+            if (object.ReferenceEquals(rhs, null) || GetType() != rhs.GetType()) { return false; }
             return object.ReferenceEquals(this, rhs) || this.elements.SequenceEqual(rhs.elements);
         }
 
@@ -721,7 +773,7 @@ namespace MongoDB.Bson {
         public override bool Equals(
             object obj
         ) {
-            return Equals(obj as BsonDocument); // works even if obj is null
+            return Equals(obj as BsonDocument); // works even if obj is null or of a different type
         }
 
         /// <summary>
@@ -1005,6 +1057,30 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
+        /// Converts the BsonDocument to a Dictionary&lt;string, object&gt;.
+        /// </summary>
+        /// <returns>A dictionary.</returns>
+        public Dictionary<string, object> ToDictionary() {
+            var dictionary = new Dictionary<string, object>(elements.Count);
+            foreach (var element in elements) {
+                dictionary.Add(element.Name, ToDictionaryHelper(element.Value));
+            }
+            return dictionary;
+        }
+
+        /// <summary>
+        /// Converts the BsonDocument to a Hashtable.
+        /// </summary>
+        /// <returns>A hashtable.</returns>
+        public Hashtable ToHashtable() {
+            var hashtable = new Hashtable(elements.Count);
+            foreach (var element in elements) {
+                hashtable.Add(element.Name, ToHashtableHelper(element.Value));
+            }
+            return hashtable;
+        }
+
+        /// <summary>
         /// Returns a string representation of the document.
         /// </summary>
         /// <returns>A string representation of the document.</returns>
@@ -1107,6 +1183,40 @@ namespace MongoDB.Bson {
                 if (!indexes.ContainsKey(element.Name)) {
                     indexes.Add(element.Name, index);
                 }
+            }
+        }
+
+        private object ToDictionaryHelper(
+            BsonValue value
+        ) {
+            switch (value.BsonType) {
+                case BsonType.Array:
+                    var array = new object[value.AsBsonArray.Count];
+                    value.AsBsonArray.CopyTo(array, 0);
+                    return array;
+
+                case BsonType.Document:
+                    return value.AsBsonDocument.ToDictionary();
+
+                default:
+                    return value.RawValue;
+            }
+        }
+
+        private object ToHashtableHelper(
+            BsonValue value
+        ) {
+            switch (value.BsonType) {
+                case BsonType.Array:
+                    var array = new object[value.AsBsonArray.Count];
+                    value.AsBsonArray.CopyTo(array, 0);
+                    return array;
+
+                case BsonType.Document:
+                    return value.AsBsonDocument.ToHashtable();
+
+                default:
+                    return value.RawValue;
             }
         }
         #endregion

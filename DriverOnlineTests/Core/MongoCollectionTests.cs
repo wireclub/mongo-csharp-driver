@@ -72,26 +72,102 @@ namespace MongoDB.DriverOnlineTests {
         }
 
         [Test]
+        public void TestCreateCollection() {
+            var collection = database["testcreatecollection"];
+            collection.Drop();
+            Assert.IsFalse(collection.Exists());
+            database.CreateCollection("testcreatecollection");
+            Assert.IsTrue(collection.Exists());
+            collection.Drop();
+        }
+
+        [Test]
+        public void TestCreateCollectionSetCappedSetMaxDocuments() {
+            var collection = database["testcreatecollection"];
+            collection.Drop();
+            Assert.IsFalse(collection.Exists());
+            var options = CollectionOptions.SetCapped(true).SetMaxSize(10000000).SetMaxDocuments(1000);
+            database.CreateCollection("testcreatecollection", options);
+            Assert.IsTrue(collection.Exists());
+            var stats = collection.GetStats();
+            Assert.IsTrue(stats.IsCapped);
+            Assert.IsTrue(stats.StorageSize >= 10000000);
+            Assert.IsTrue(stats.MaxDocuments == 1000);
+            collection.Drop();
+        }
+
+        [Test]
+        public void TestCreateCollectionSetCappedSetMaxSize() {
+            var collection = database["testcreatecollection"];
+            collection.Drop();
+            Assert.IsFalse(collection.Exists());
+            var options = CollectionOptions.SetCapped(true).SetMaxSize(10000000);
+            database.CreateCollection("testcreatecollection", options);
+            Assert.IsTrue(collection.Exists());
+            var stats = collection.GetStats();
+            Assert.IsTrue(stats.IsCapped);
+            Assert.IsTrue(stats.StorageSize >= 10000000);
+            collection.Drop();
+        }
+
+        [Test]
         public void TestCreateIndex() {
+            var expectedIndexVersion = (server.BuildInfo.Version >= new Version(2, 0, 0)) ? 1 : 0;
+
             collection.DropAllIndexes();
-            var indexes = collection.GetIndexes().ToArray();
-            Assert.AreEqual(1, indexes.Length);
-            Assert.AreEqual("_id_", indexes[0]["name"].AsString);
+            var indexes = collection.GetIndexes();
+            Assert.AreEqual(1, indexes.Count);
+            Assert.AreEqual(false, indexes[0].DroppedDups);
+            Assert.AreEqual(false, indexes[0].IsBackground);
+            Assert.AreEqual(false, indexes[0].IsSparse);
+            Assert.AreEqual(false, indexes[0].IsUnique);
+            Assert.AreEqual(new BsonDocument("_id", 1), indexes[0].Key);
+            Assert.AreEqual("_id_", indexes[0].Name);
+            Assert.AreEqual("onlinetests.testcollection", indexes[0].Namespace);
+            Assert.AreEqual(expectedIndexVersion, indexes[0].Version);
 
             collection.DropAllIndexes();
             collection.CreateIndex("x");
-            indexes = collection.GetIndexes().ToArray();
-            Assert.AreEqual(2, indexes.Length);
-            Assert.AreEqual("_id_", indexes[0]["name"].AsString);
-            Assert.AreEqual("x_1", indexes[1]["name"].AsString);
+            indexes = collection.GetIndexes();
+            Assert.AreEqual(2, indexes.Count);
+            Assert.AreEqual(false, indexes[0].DroppedDups);
+            Assert.AreEqual(false, indexes[0].IsBackground);
+            Assert.AreEqual(false, indexes[0].IsSparse);
+            Assert.AreEqual(false, indexes[0].IsUnique);
+            Assert.AreEqual(new BsonDocument("_id", 1), indexes[0].Key);
+            Assert.AreEqual("_id_", indexes[0].Name);
+            Assert.AreEqual("onlinetests.testcollection", indexes[0].Namespace);
+            Assert.AreEqual(expectedIndexVersion, indexes[0].Version);
+            Assert.AreEqual(false, indexes[1].DroppedDups);
+            Assert.AreEqual(false, indexes[1].IsBackground);
+            Assert.AreEqual(false, indexes[1].IsSparse);
+            Assert.AreEqual(false, indexes[1].IsUnique);
+            Assert.AreEqual(new BsonDocument("x", 1), indexes[1].Key);
+            Assert.AreEqual("x_1", indexes[1].Name);
+            Assert.AreEqual("onlinetests.testcollection", indexes[1].Namespace);
+            Assert.AreEqual(expectedIndexVersion, indexes[1].Version);
 
             collection.DropAllIndexes();
-            collection.CreateIndex(IndexKeys.Ascending("x").Descending("y"), IndexOptions.SetUnique(true));
-            indexes = collection.GetIndexes().ToArray();
-            Assert.AreEqual(2, indexes.Length);
-            Assert.AreEqual("_id_", indexes[0]["name"].AsString);
-            Assert.AreEqual("x_1_y_-1", indexes[1]["name"].AsString);
-            Assert.AreEqual(true, indexes[1]["unique"].ToBoolean());
+            var options = IndexOptions.SetBackground(true).SetDropDups(true).SetSparse(true).SetUnique(true);
+            collection.CreateIndex(IndexKeys.Ascending("x").Descending("y"), options);
+            indexes = collection.GetIndexes();
+            Assert.AreEqual(2, indexes.Count);
+            Assert.AreEqual(false, indexes[0].DroppedDups);
+            Assert.AreEqual(false, indexes[0].IsBackground);
+            Assert.AreEqual(false, indexes[0].IsSparse);
+            Assert.AreEqual(false, indexes[0].IsUnique);
+            Assert.AreEqual(new BsonDocument("_id", 1), indexes[0].Key);
+            Assert.AreEqual("_id_", indexes[0].Name);
+            Assert.AreEqual("onlinetests.testcollection", indexes[0].Namespace);
+            Assert.AreEqual(expectedIndexVersion, indexes[0].Version);
+            Assert.AreEqual(true, indexes[1].DroppedDups);
+            Assert.AreEqual(true, indexes[1].IsBackground);
+            Assert.AreEqual(true, indexes[1].IsSparse);
+            Assert.AreEqual(true, indexes[1].IsUnique);
+            Assert.AreEqual(new BsonDocument { { "x", 1 }, { "y", -1 } }, indexes[1].Key);
+            Assert.AreEqual("x_1_y_-1", indexes[1].Name);
+            Assert.AreEqual("onlinetests.testcollection", indexes[1].Namespace);
+            Assert.AreEqual(expectedIndexVersion, indexes[1].Version);
         }
 
         [Test]
@@ -477,6 +553,31 @@ namespace MongoDB.DriverOnlineTests {
 #pragma warning restore
 
         [Test]
+        public void TestGeoHaystackSearch() {
+            if (collection.Exists()) { collection.Drop(); }
+            collection.Insert(new Place { Location = new[] { 34.2, 33.3 }, Type = "restaurant" });
+            collection.Insert(new Place { Location = new[] { 34.2, 37.3 }, Type = "restaurant" });
+            collection.Insert(new Place { Location = new[] { 59.1, 87.2 }, Type = "office" });
+            collection.CreateIndex(IndexKeys.GeoSpatialHaystack("Location", "Type"), IndexOptions.SetBucketSize(1));
+
+            var options = GeoHaystackSearchOptions
+                .SetLimit(30)
+                .SetMaxDistance(6)
+                .SetQuery("Type", "restaurant");
+            var result = collection.GeoHaystackSearchAs<Place>(33, 33, options);
+            Assert.IsTrue(result.Ok);
+            Assert.IsTrue(result.Stats.Duration >= TimeSpan.Zero);
+            Assert.AreEqual(2, result.Stats.BTreeMatches);
+            Assert.AreEqual(2, result.Stats.NumberOfHits);
+            Assert.AreEqual(34.2, result.Hits[0].Document.Location[0]);
+            Assert.AreEqual(33.3, result.Hits[0].Document.Location[1]);
+            Assert.AreEqual("restaurant", result.Hits[0].Document.Type);
+            Assert.AreEqual(34.2, result.Hits[1].Document.Location[0]);
+            Assert.AreEqual(37.3, result.Hits[1].Document.Location[1]);
+            Assert.AreEqual("restaurant", result.Hits[1].Document.Type);
+        }
+
+        [Test]
         public void TestGeoNear() {
             if (collection.Exists()) { collection.Drop(); }
             collection.Insert(new Place { Location = new[] { 1.0, 1.0 }, Name = "One", Type = "Museum" });
@@ -641,9 +742,10 @@ namespace MongoDB.DriverOnlineTests {
         [Test]
         public void TestGetIndexes() {
             collection.DropAllIndexes();
-            var indexes = collection.GetIndexes().ToArray();
-            Assert.AreEqual(1, indexes.Length);
-            Assert.AreEqual("_id_", indexes[0]["name"].AsString);
+            var indexes = collection.GetIndexes();
+            Assert.AreEqual(1, indexes.Count);
+            Assert.AreEqual("_id_", indexes[0].Name);
+			// see additional tests in TestCreateIndex
         }
 
         [Test]
@@ -712,6 +814,61 @@ namespace MongoDB.DriverOnlineTests {
 
             collection.CreateIndex(IndexKeys.Ascending("y"));
             Assert.AreEqual(true, collection.IndexExists(IndexKeys.Ascending("y")));
+        }
+
+        [Test]
+        public void TestInsertBatchContinueOnError() {
+            var collection = database["continueonerror"];
+            collection.Drop();
+            collection.CreateIndex(IndexKeys.Ascending("x"), IndexOptions.SetUnique(true));
+
+            var batch = new BsonDocument[] {
+                new BsonDocument("x", 1),
+                new BsonDocument("x", 1), // duplicate
+                new BsonDocument("x", 2),
+                new BsonDocument("x", 2), // duplicate
+                new BsonDocument("x", 3),
+                new BsonDocument("x", 3) // duplicate
+            };
+
+            // try the batch without ContinueOnError
+            try {
+                collection.InsertBatch(batch);
+            } catch (MongoSafeModeException) {
+                Assert.AreEqual(1, collection.Count());
+                Assert.AreEqual(1, collection.FindOne()["x"].AsInt32);
+            }
+
+            // try the batch again with ContinueOnError
+            if (server.BuildInfo.Version >= new Version(2, 0, 0)) {
+                try {
+                    var options = new MongoInsertOptions(collection) { Flags = InsertFlags.ContinueOnError };
+                    collection.InsertBatch(batch, options);
+                } catch (MongoSafeModeException) {
+                    Assert.AreEqual(3, collection.Count());
+                }
+            }
+        }
+
+        [Test]
+        public void TestIsCappedFalse() {
+            var collection = database["notcappedcollection"];
+            collection.Drop();
+            database.CreateCollection("notcappedcollection");
+
+            Assert.AreEqual(true, collection.Exists());
+            Assert.AreEqual(false, collection.IsCapped());
+        }
+
+        [Test]
+        public void TestIsCappedTrue() {
+            var collection = database["cappedcollection"];
+            collection.Drop();
+            var options = CollectionOptions.SetCapped(true).SetMaxSize(100000);
+            database.CreateCollection("cappedcollection", options);
+
+            Assert.AreEqual(true, collection.Exists());
+            Assert.AreEqual(true, collection.IsCapped());
         }
 
 #pragma warning disable 649 // never assigned to
@@ -1016,6 +1173,33 @@ namespace MongoDB.DriverOnlineTests {
         [Test]
         public void TestTotalStorageSize() {
             var dataSize = collection.GetTotalStorageSize();
+        }
+
+        [Test]
+        public void TestUpdate() {
+            collection.Drop();
+            collection.Insert(new BsonDocument("x", 1));
+            collection.Update(Query.EQ("x", 1), Update.Set("x", 2));
+            var document = collection.FindOne();
+            Assert.AreEqual(2, document["x"].AsInt32);
+        }
+
+        [Test]
+        public void TestUpdateEmptyQueryDocument() {
+            collection.Drop();
+            collection.Insert(new BsonDocument("x", 1));
+            collection.Update(new QueryDocument(), Update.Set("x", 2));
+            var document = collection.FindOne();
+            Assert.AreEqual(2, document["x"].AsInt32);
+        }
+
+        [Test]
+        public void TestUpdateNullQuery() {
+            collection.Drop();
+            collection.Insert(new BsonDocument("x", 1));
+            collection.Update(Query.Null, Update.Set("x", 2));
+            var document = collection.FindOne();
+            Assert.AreEqual(2, document["x"].AsInt32);
         }
 
         [Test]

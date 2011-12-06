@@ -171,6 +171,13 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
+        /// Casts the BsonValue to a BsonValue (a way of upcasting subclasses of BsonValue to BsonValue at compile time).
+        /// </summary>
+        public BsonValue AsBsonValue {
+            get { return this; }
+        }
+
+        /// <summary>
         /// Casts the BsonValue to a Byte[] (throws an InvalidCastException if the cast is not valid).
         /// </summary>
         public byte[] AsByteArray {
@@ -887,7 +894,7 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <param name="lhs">The first BsonValue.</param>
         /// <param name="rhs">The other BsonValue.</param>
-        /// <returns>True if the two BsonValues are not equal (or one is null and the other is not).</returns>
+        /// <returns>True if the two BsonValues are not equal according to ==.</returns>
         public static bool operator !=(
             BsonValue lhs,
             BsonValue rhs
@@ -900,12 +907,14 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <param name="lhs">The first BsonValue.</param>
         /// <param name="rhs">The other BsonValue.</param>
-        /// <returns>True if the two BsonValues are equal (or both null).</returns>
+        /// <returns>True if the two BsonValues are equal according to ==.</returns>
         public static bool operator ==(
             BsonValue lhs,
             BsonValue rhs
         ) {
-            return object.Equals(lhs, rhs);
+            if (object.ReferenceEquals(lhs, null)) { return object.ReferenceEquals(rhs, null); }
+            if (object.ReferenceEquals(rhs, null)) { return false; } // don't check type because sometimes different types can be ==
+            return lhs.OperatorEqualsImplementation(rhs); // some subclasses override OperatorEqualsImplementation
         }
 
         /// <summary>
@@ -983,14 +992,9 @@ namespace MongoDB.Bson {
                 case BsonType.Binary:
                     byte[] bytes;
                     BsonBinarySubType subType;
-                    bsonReader.ReadBinaryData(out bytes, out subType);
-                    if (subType == BsonBinarySubType.UuidStandard) {
-                        return new BsonBinaryData(bytes, subType, GuidRepresentation.Standard);
-                    } else if (subType == BsonBinarySubType.UuidLegacy) {
-                        return new BsonBinaryData(bytes, subType, bsonReader.Settings.GuidRepresentation);
-                    } else {
-                        return new BsonBinaryData(bytes, subType);
-                    }
+                    GuidRepresentation guidRepresentation;
+                    bsonReader.ReadBinaryData(out bytes, out subType, out guidRepresentation);
+                    return new BsonBinaryData(bytes, subType, guidRepresentation);
                 case BsonType.Boolean:
                     return BsonBoolean.Create(bsonReader.ReadBoolean());
                 case BsonType.DateTime:
@@ -1092,7 +1096,7 @@ namespace MongoDB.Bson {
         public bool Equals(
             BsonValue rhs
         ) {
-            return object.Equals(this, rhs);
+            return Equals((object) rhs);
         }
 
         /// <summary>
@@ -1268,6 +1272,19 @@ namespace MongoDB.Bson {
                     bsonWriter.WriteUndefined();
                     break;
             }
+        }
+        #endregion
+
+        #region protected methods
+        /// <summary>
+        /// Implementation of operator ==.
+        /// </summary>
+        /// <param name="rhs">The other BsonValue.</param>
+        /// <returns>True if the two BsonValues are equal according to ==.</returns>
+        protected virtual bool OperatorEqualsImplementation(
+            BsonValue rhs
+        ) {
+            return Equals(rhs); // default implementation of == is to call Equals
         }
         #endregion
 

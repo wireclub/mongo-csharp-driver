@@ -42,25 +42,74 @@ namespace MongoDB.Bson.Serialization {
         #endregion
 
         #region protected fields
-#pragma warning disable 1591 // missing XML comment (it's warning about protected members also)
+        /// <summary>
+        /// Whether the class map has been frozen.
+        /// </summary>
         protected bool frozen; // once a class map has been frozen no further changes are allowed
+        /// <summary>
+        /// The class map for the base class.
+        /// </summary>
         protected BsonClassMap baseClassMap; // null for class object and interfaces
+        /// <summary>
+        /// The class that this class map is for.
+        /// </summary>
         protected Type classType;
+        /// <summary>
+        /// A function that creates a new instance of the class.
+        /// </summary>
         private Func<object> creator;
+        /// <summary>
+        /// The convention profile used by this class map.
+        /// </summary>
         protected ConventionProfile conventions;
+        /// <summary>
+        /// The discriminator value.
+        /// </summary>
         protected string discriminator;
+        /// <summary>
+        /// Whether a discriminator is required.
+        /// </summary>
         protected bool discriminatorIsRequired;
+        /// <summary>
+        /// Whether this class is descended from a root class.
+        /// </summary>
         protected bool hasRootClass;
+        /// <summary>
+        /// Whether this class is a root class.
+        /// </summary>
         protected bool isRootClass;
+        /// <summary>
+        /// Whether this class is an anonymous class.
+        /// </summary>
         protected bool isAnonymous;
+        /// <summary>
+        /// The member map for the id property or field.
+        /// </summary>
         protected BsonMemberMap idMemberMap;
+        /// <summary>
+        /// A list of all the member maps for this class map (including member maps for inherited properties and fields).
+        /// </summary>
         protected List<BsonMemberMap> allMemberMaps = new List<BsonMemberMap>(); // includes inherited member maps
+        /// <summary>
+        /// A list of member maps for properties or fields declared in this class.
+        /// </summary>
         protected List<BsonMemberMap> declaredMemberMaps = new List<BsonMemberMap>(); // only the members declared in this class
+        /// <summary>
+        /// A dictionary mapping element names to the corresponding member map.
+        /// </summary>
         protected Dictionary<string, BsonMemberMap> elementDictionary = new Dictionary<string, BsonMemberMap>();
+        /// <summary>
+        /// Whether to ignore extra elements during deserialization.
+        /// </summary>
         protected bool ignoreExtraElements = true;
+        /// <summary>
+        /// The member map for the property or field (if any) used to hold any extra elements found during deserialization.
+        /// </summary>
         protected BsonMemberMap extraElementsMemberMap;
+        /// <summary>
+        /// A list of known types derived from this class.
+        /// </summary>
         protected List<Type> knownTypes = new List<Type>();
-#pragma warning restore
         #endregion
 
         #region constructors
@@ -242,8 +291,11 @@ namespace MongoDB.Bson.Serialization {
         public static bool IsClassMapRegistered(
             Type type
         ) {
-            lock (BsonSerializer.ConfigLock) {
+            BsonSerializer.ConfigLock.EnterReadLock();
+            try {
                 return classMaps.ContainsKey(type);
+            } finally {
+                BsonSerializer.ConfigLock.ExitReadLock();
             }
         }
 
@@ -255,7 +307,20 @@ namespace MongoDB.Bson.Serialization {
         public static BsonClassMap LookupClassMap(
             Type classType
         ) {
-            lock (BsonSerializer.ConfigLock) {
+            BsonSerializer.ConfigLock.EnterReadLock();
+            try {
+                BsonClassMap classMap;
+                if (classMaps.TryGetValue(classType, out classMap)) {
+                    if (classMap.IsFrozen) {
+                        return classMap;
+                    }
+                }
+            } finally {
+                BsonSerializer.ConfigLock.ExitReadLock();
+            }
+
+            BsonSerializer.ConfigLock.EnterWriteLock();
+            try {
                 BsonClassMap classMap;
                 if (!classMaps.TryGetValue(classType, out classMap)) {
                     // automatically create a classMap for classType and register it
@@ -266,6 +331,8 @@ namespace MongoDB.Bson.Serialization {
                     RegisterClassMap(classMap);
                 }
                 return classMap.Freeze();
+            } finally {
+                BsonSerializer.ConfigLock.ExitWriteLock();
             }
         }
 
@@ -316,10 +383,13 @@ namespace MongoDB.Bson.Serialization {
         public static void RegisterClassMap(
             BsonClassMap classMap
         ) {
-            lock (BsonSerializer.ConfigLock) {
+            BsonSerializer.ConfigLock.EnterWriteLock();
+            try {
                 // note: class maps can NOT be replaced (because derived classes refer to existing instance)
                 classMaps.Add(classMap.ClassType, classMap);
                 BsonDefaultSerializer.RegisterDiscriminator(classMap.ClassType, classMap.Discriminator);
+            } finally {
+                BsonSerializer.ConfigLock.ExitWriteLock();
             }
         }
 
@@ -364,9 +434,19 @@ namespace MongoDB.Bson.Serialization {
         /// <summary>
         /// Freezes the class map.
         /// </summary>
-        /// <returns>The class map.</returns>
+        /// <returns>The frozen class map.</returns>
         public BsonClassMap Freeze() {
-            lock (BsonSerializer.ConfigLock) {
+            BsonSerializer.ConfigLock.EnterReadLock();
+            try {
+                if (frozen) {
+                    return this;
+                }
+            } finally {
+                BsonSerializer.ConfigLock.ExitReadLock();
+            }
+
+            BsonSerializer.ConfigLock.EnterWriteLock();
+            try {
                 if (!frozen) {
                     freezeNestingLevel++;
                     try {
@@ -420,13 +500,33 @@ namespace MongoDB.Bson.Serialization {
                             if (!elementDictionary.TryGetValue(memberMap.ElementName, out conflictingMemberMap)) {
                                 elementDictionary.Add(memberMap.ElementName, memberMap);
                             } else {
-                                var message = string.Format(
-                                    "Member '{0}' of class '{1}' cannot use element name '{2}' because it is already being used by member '{3}'.",
-                                    memberMap.MemberName,
-                                    classType.FullName,
-                                    memberMap.ElementName,
-                                    conflictingMemberMap.MemberName
-                                );
+                                var fieldOrProperty = (memberMap.MemberInfo.MemberType == MemberTypes.Field) ? "field" : "property";
+                                var conflictingFieldOrProperty = (conflictingMemberMap.MemberInfo.MemberType == MemberTypes.Field) ? "field" : "property";
+                                var conflictingType = conflictingMemberMap.MemberInfo.DeclaringType;
+
+                                string message;
+                                if (conflictingType == classType) {
+                                    message = string.Format(
+                                        "The {0} '{1}' of type '{2}' cannot use element name '{3}' because it is already being used by {4} '{5}'.",
+                                        fieldOrProperty,
+                                        memberMap.MemberName,
+                                        classType.FullName,
+                                        memberMap.ElementName,
+                                        conflictingFieldOrProperty,
+                                        conflictingMemberMap.MemberName
+                                    );
+                                } else {
+                                    message = string.Format(
+                                        "The {0} '{1}' of type '{2}' cannot use element name '{3}' because it is already being used by {4} '{5}' of type '{6}'.",
+                                        fieldOrProperty,
+                                        memberMap.MemberName,
+                                        classType.FullName,
+                                        memberMap.ElementName,
+                                        conflictingFieldOrProperty,
+                                        conflictingMemberMap.MemberName,
+                                        conflictingType.FullName
+                                    );
+                                }
                                 throw new BsonSerializationException(message);
                             }
                         }
@@ -452,6 +552,8 @@ namespace MongoDB.Bson.Serialization {
                         freezeNestingLevel--;
                     }
                 }
+            } finally {
+                BsonSerializer.ConfigLock.ExitWriteLock();
             }
             return this;
         }
@@ -929,17 +1031,19 @@ namespace MongoDB.Bson.Serialization {
 
         private Func<object> GetCreator() {
             if (creator == null) {
-                Expression expression;
+                Expression body;
                 var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
                 var defaultConstructor = classType.GetConstructor(bindingFlags, null, new Type[0], null);
                 if (defaultConstructor != null) {
-                    expression = Expression.New(defaultConstructor);
+                    // lambdaExpression = () => (object) new TClass()
+                    body = Expression.New(defaultConstructor);
                 } else {
-                    var getUnitializedObjectInfo = typeof(FormatterServices).GetMethod("GetUninitializedObject", BindingFlags.Public | BindingFlags.Static);
-                    expression = Expression.Call(getUnitializedObjectInfo, Expression.Constant(classType));
+                    // lambdaExpression = () => FormatterServices.GetUninitializedObject(classType)
+                    var getUnitializedObjectMethodInfo = typeof(FormatterServices).GetMethod("GetUninitializedObject", BindingFlags.Public | BindingFlags.Static);
+                    body = Expression.Call(getUnitializedObjectMethodInfo, Expression.Constant(classType));
                 }
-                var lambda = Expression.Lambda<Func<object>>(expression);
-                creator = lambda.Compile();
+                var lambdaExpression = Expression.Lambda<Func<object>>(body);
+                creator = lambdaExpression.Compile();
             }
             return creator;
         }
@@ -954,14 +1058,15 @@ namespace MongoDB.Bson.Serialization {
                 shouldSerializeMethodInfo.IsPublic &&
                 shouldSerializeMethodInfo.ReturnType == typeof(bool)
             ) {
-                // we need to construct a lambda wich does the following
-                // (obj) => obj.ShouldSerializeXyz()
-                var parameter = Expression.Parameter(typeof(object), "obj");
-                var body = Expression.Call(
-                    Expression.Convert(parameter, classType),
-                    shouldSerializeMethodInfo
+                // lambdaExpression = (obj) => ((TClass) obj).ShouldSerializeXyz()
+                var objParameter = Expression.Parameter(typeof(object), "obj");
+                var lambdaExpression = Expression.Lambda<Func<object, bool>>(
+                    Expression.Call(
+                        Expression.Convert(objParameter, classType),
+                        shouldSerializeMethodInfo
+                    ),
+                    objParameter
                 );
-                var lambdaExpression = Expression.Lambda<Func<object, bool>>(body, parameter);
                 return lambdaExpression.Compile();
             } else {
                 return null;

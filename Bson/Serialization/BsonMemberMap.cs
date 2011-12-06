@@ -242,7 +242,9 @@ namespace MongoDB.Bson.Serialization {
         public BsonMemberMap SetDefaultValue(
             object defaultValue
         ) {
-            return SetDefaultValue(defaultValue, true); // serializeDefaultValue
+            this.defaultValue = defaultValue;
+            this.hasDefaultValue = true;
+            return this;
         }
 
         /// <summary>
@@ -255,9 +257,8 @@ namespace MongoDB.Bson.Serialization {
             object defaultValue,
             bool serializeDefaultValue
         ) {
-            this.hasDefaultValue = true;
-            this.serializeDefaultValue = serializeDefaultValue;
-            this.defaultValue = defaultValue;
+            SetDefaultValue(defaultValue);
+            SetSerializeDefaultValue(serializeDefaultValue);
             return this;
         }
 
@@ -373,7 +374,7 @@ namespace MongoDB.Bson.Serialization {
         /// Sets the method that will be called to determine whether the member should be serialized.
         /// </summary>
         /// <param name="shouldSerializeMethod">The method.</param>
-        /// <returns></returns>
+        /// <returns>The member map.</returns>
         public BsonMemberMap SetShouldSerializeMethod(
             Func<object, bool> shouldSerializeMethod
         ) {
@@ -419,19 +420,20 @@ namespace MongoDB.Bson.Serialization {
                 }
             }
 
-            var instance = Expression.Parameter(typeof(object), "obj");
-            var lambda = Expression.Lambda<Func<object, object>>(
+            // lambdaExpression = (obj) => (object) ((TClass) obj).Member
+            var objParameter = Expression.Parameter(typeof(object), "obj");
+            var lambdaExpression = Expression.Lambda<Func<object, object>>(
                 Expression.Convert(
                     Expression.MakeMemberAccess(
-                        Expression.Convert(instance, memberInfo.DeclaringType),
+                        Expression.Convert(objParameter, memberInfo.DeclaringType),
                         memberInfo
                     ),
                     typeof(object)
                 ),
-                instance
+                objParameter
             );
 
-            return lambda.Compile();
+            return lambdaExpression.Compile();
         }
 
         private Action<object, object> GetPropertySetter() {
@@ -442,19 +444,20 @@ namespace MongoDB.Bson.Serialization {
                 throw new BsonSerializationException(message);
             }
 
-            var instance = Expression.Parameter(typeof(object), "obj");
-            var argument = Expression.Parameter(typeof(object), "a");
-            var lambda = Expression.Lambda<Action<object, object>>(
+            // lambdaExpression = (obj, value) => ((TClass) obj).SetMethod((TMember) value)
+            var objParameter = Expression.Parameter(typeof(object), "obj");
+            var valueParameter = Expression.Parameter(typeof(object), "value");
+            var lambdaExpression = Expression.Lambda<Action<object, object>>(
                 Expression.Call(
-                    Expression.Convert(instance, memberInfo.DeclaringType),
+                    Expression.Convert(objParameter, memberInfo.DeclaringType),
                     setMethodInfo,
-                    Expression.Convert(argument, memberType)
+                    Expression.Convert(valueParameter, memberType)
                 ),
-                instance,
-                argument
+                objParameter,
+                valueParameter
             );
 
-            return lambda.Compile();
+            return lambdaExpression.Compile();
         }
         #endregion
     }

@@ -19,7 +19,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
-
+using System.Web;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
@@ -30,7 +30,7 @@ namespace MongoDB.Driver {
     /// <summary>
     /// Reprsents an enumerator that fetches the results of a query sent to the server.
     /// </summary>
-    /// <typeparam name="TDocument"></typeparam>
+    /// <typeparam name="TDocument">The type of the documents returned.</typeparam>
     public class MongoCursorEnumerator<TDocument> : IEnumerator<TDocument> {
         #region private fields
         private bool disposed = false;
@@ -178,7 +178,7 @@ namespace MongoDB.Driver {
         #endregion
 
         #region private methods
-        private MongoConnection AcquireConnection() {
+        private MongoConnection AcquireConnection_Original() {
             if (serverInstance == null) {
                 // first time we need a connection let Server.AcquireConnection pick the server instance
                 var connection = cursor.Server.AcquireConnection(cursor.Database, cursor.SlaveOk);
@@ -188,6 +188,24 @@ namespace MongoDB.Driver {
                 // all subsequent requests for the same cursor must go to the same server instance
                 return cursor.Server.AcquireConnection(cursor.Database, serverInstance);
             }
+        }
+
+        private MongoConnection AcquireConnection()
+        {
+            bool? slaveOverride = null;
+            if (HttpContext.Current != null && HttpContext.Current.Items["SlaveOk"] != null && bool.Parse(HttpContext.Current.Items["SlaveOk"].ToString()))
+                slaveOverride = true;
+
+            if (serverInstance == null)
+            {
+                // first time we need a connection let Server.AcquireConnection pick the server instance
+                var connection = cursor.Server.AcquireConnection(cursor.Database, slaveOverride ??cursor.SlaveOk);
+                serverInstance = connection.ServerInstance;
+                return connection;
+            }
+
+            // all subsequent requests for the same cursor must go to the same server instance
+            return cursor.Server.AcquireConnection(cursor.Database, serverInstance);
         }
 
         private MongoReplyMessage<TDocument> GetFirst() {

@@ -22,23 +22,39 @@ using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 
 namespace MongoDB.Driver.Internal {
-    internal enum MongoConnectionState {
+    /// <summary>
+    /// Represents the state of a connection.
+    /// </summary>
+    public enum MongoConnectionState {
+        /// <summary>
+        /// The connection has not yet been initialized.
+        /// </summary>
         Initial,
+        /// <summary>
+        /// The connection is open.
+        /// </summary>
         Open,
-        Damaged,
+        /// <summary>
+        /// The connection is closed.
+        /// </summary>
         Closed
     }
 
-    internal class MongoConnection {
+    /// <summary>
+    /// Represents a connection to a MongoServerInstance.
+    /// </summary>
+    public class MongoConnection {
         #region private fields
         private object connectionLock = new object();
         private MongoServerInstance serverInstance;
         private MongoConnectionPool connectionPool;
+        private int generationId; // the generationId of the connection pool at the time this connection was created
         private MongoConnectionState state;
         private TcpClient tcpClient;
         private DateTime createdAt;
         private DateTime lastUsedAt; // set every time the connection is Released
         private int messageCounter;
+        private int requestId;
         private Dictionary<string, Authentication> authentications = new Dictionary<string, Authentication>();
         #endregion
 
@@ -48,34 +64,67 @@ namespace MongoDB.Driver.Internal {
         ) {
             this.serverInstance = connectionPool.ServerInstance;
             this.connectionPool = connectionPool;
+            this.generationId = connectionPool.GenerationId;
             this.createdAt = DateTime.UtcNow;
             this.state = MongoConnectionState.Initial;
         }
         #endregion
 
-        #region internal properties
-        internal MongoConnectionPool ConnectionPool {
+        #region public properties
+        /// <summary>
+        /// Gets the connection pool that this connection belongs to.
+        /// </summary>
+        public MongoConnectionPool ConnectionPool {
             get { return connectionPool; }
         }
 
-        internal DateTime CreatedAt {
+        /// <summary>
+        /// Gets the DateTime that this connection was created at.
+        /// </summary>
+        public DateTime CreatedAt {
             get { return createdAt; }
         }
 
-        internal DateTime LastUsedAt {
-            get { return lastUsedAt; }
-            set { lastUsedAt = value; }
+        /// <summary>
+        /// Gets the generation of the connection pool that this connection belongs to.
+        /// </summary>
+        public int GenerationId {
+            get { return generationId; }
         }
 
-        internal int MessageCounter {
+        /// <summary>
+        /// Gets the DateTime that this connection was last used at.
+        /// </summary>
+        public DateTime LastUsedAt {
+            get { return lastUsedAt; }
+            internal set { lastUsedAt = value; }
+        }
+
+        /// <summary>
+        /// Gets a count of the number of messages that have been sent using this connection.
+        /// </summary>
+        public int MessageCounter {
             get { return messageCounter; }
         }
 
-        internal MongoServerInstance ServerInstance {
+        /// <summary>
+        /// Gets the RequestId of the last message sent on this connection.
+        /// </summary>
+        public int RequestId {
+            get { return requestId; }
+        }
+
+        /// <summary>
+        /// Gets the server instance this connection is connected to.
+        /// </summary>
+        public MongoServerInstance ServerInstance {
             get { return serverInstance; }
         }
 
-        internal MongoConnectionState State {
+        /// <summary>
+        /// Gets the state of this connection.
+        /// </summary>
+        public MongoConnectionState State {
             get { return state; }
         }
         #endregion
@@ -200,7 +249,7 @@ namespace MongoDB.Driver.Internal {
                         if (tcpClient.Connected) {
                             // even though MSDN says TcpClient.Close doesn't close the underlying socket
                             // it actually does (as proven by disassembling TcpClient and by experimentation)
-                            tcpClient.Close();
+                            try { tcpClient.Close(); } catch { } // ignore exceptions
                         }
                         tcpClient = null;
                     }
@@ -338,13 +387,17 @@ namespace MongoDB.Driver.Internal {
         ) {
             if (state == MongoConnectionState.Closed) { throw new InvalidOperationException("Connection is closed."); }
             lock (connectionLock) {
+                requestId = message.RequestId;
+
                 message.WriteToBuffer();
                 CommandDocument safeModeCommand = null;
                 if (safeMode.Enabled) {
                     safeModeCommand = new CommandDocument {
                         { "getlasterror", 1 }, // use all lowercase for backward compatibility
                         { "fsync", true, safeMode.FSync },
+                        { "j", true, safeMode.J },
                         { "w", safeMode.W, safeMode.W > 1 },
+                        { "w", safeMode.WMode, safeMode.WMode != null },
                         { "wtimeout", (int) safeMode.WTimeout.TotalMilliseconds, safeMode.W > 1 && safeMode.WTimeout != TimeSpan.Zero }
                     };
                     using (
@@ -410,20 +463,46 @@ namespace MongoDB.Driver.Internal {
         private void HandleException(
             Exception ex
         ) {
-            // TODO: figure out which exceptions are more serious than others
             // there are three possible situations:
             // 1. we can keep using the connection
-            // 2. just this one connection needs to be discarded
-            // 3. the whole connection pool needs to be discarded
-            // for now the only exception we know affects only one connection is FileFormatException
-            // and there are no cases where the connection can continue to be used
+            // 2. just this one connection needs to be closed
+            // 3. the whole connection pool needs to be cleared
 
-            state = MongoConnectionState.Damaged;
-            if (!(ex is FileFormatException)) {
-                try {
-                    serverInstance.Disconnect();
-                } catch { } // ignore any further exceptions
+            switch (DetermineAction(ex)) {
+                case HandleExceptionAction.KeepConnection:
+                    break;
+                case HandleExceptionAction.CloseConnection:
+                    Close();
+                    break;
+                case HandleExceptionAction.ClearConnectionPool:
+                    Close();
+                    connectionPool.Clear();
+                    break;
+                default:
+                    throw new MongoInternalException("Invalid HandleExceptionAction");
             }
+
+            // forces a call to VerifyState before the next message is sent to this server instance
+            // this is a bit drastic but at least it's safe (and perhaps we can optimize a bit in the future)
+            serverInstance.SetState(MongoServerState.Unknown);
+        }
+
+        private enum HandleExceptionAction {
+            KeepConnection,
+            CloseConnection,
+            ClearConnectionPool
+        }
+
+        private HandleExceptionAction DetermineAction(
+            Exception ex
+        ) {
+            // TODO: figure out when to return KeepConnection or ClearConnectionPool (if ever)
+
+            // don't return ClearConnectionPool unless you are *sure* it is the right action
+            // definitely don't make ClearConnectionPool the default action
+            // returning ClearConnectionPool frequently can result in Connect/Disconnect storms
+
+            return HandleExceptionAction.CloseConnection; // this should always be the default action
         }
         #endregion
 

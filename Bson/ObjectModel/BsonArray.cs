@@ -29,7 +29,7 @@ namespace MongoDB.Bson {
     [Serializable]
     public class BsonArray : BsonValue, IComparable<BsonArray>, IEquatable<BsonArray>, IList<BsonValue> {
         #region private fields
-        private List<BsonValue> values = new List<BsonValue>();
+        private List<BsonValue> values;
         #endregion
 
         #region constructors
@@ -37,7 +37,7 @@ namespace MongoDB.Bson {
         /// Initializes a new instance of the BsonArray class.
         /// </summary>
         public BsonArray()
-            : base(BsonType.Array) {
+            : this(0) {
         }
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<bool> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -58,7 +58,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<BsonValue> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -69,7 +69,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<DateTime> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -80,7 +80,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<double> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -91,7 +91,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<int> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -102,18 +102,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<long> values
         )
-            : base(BsonType.Array) {
-            AddRange(values);
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the BsonArray class.
-        /// </summary>
-        /// <param name="values">A list of values to add to the array.</param>
-        public BsonArray(
-            IEnumerable<object> values
-        )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -124,7 +113,7 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<ObjectId> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
         }
 
@@ -135,12 +124,71 @@ namespace MongoDB.Bson {
         public BsonArray(
             IEnumerable<string> values
         )
-            : base(BsonType.Array) {
+            : this(0) {
             AddRange(values);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonArray class.
+        /// </summary>
+        /// <param name="values">A list of values to add to the array.</param>
+        public BsonArray(
+            IEnumerable values
+        )
+            : this(0) {
+            AddRange(values);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the BsonArray class.
+        /// </summary>
+        /// <param name="capacity">The initial capacity of the array.</param>
+        public BsonArray(
+            int capacity
+        )
+            : base(BsonType.Array) {
+            values = new List<BsonValue>(capacity);
+        }
+        #endregion
+
+        #region public operators
+        /// <summary>
+        /// Compares two BsonArray values.
+        /// </summary>
+        /// <param name="lhs">The first BsonArray.</param>
+        /// <param name="rhs">The other BsonArray.</param>
+        /// <returns>True if the two BsonArray values are not equal according to ==.</returns>
+        public static bool operator !=(
+            BsonArray lhs,
+            BsonArray rhs
+        ) {
+            return !(lhs == rhs);
+        }
+
+        /// <summary>
+        /// Compares two BsonArray values.
+        /// </summary>
+        /// <param name="lhs">The first BsonArray.</param>
+        /// <param name="rhs">The other BsonArray.</param>
+        /// <returns>True if the two BsonArray values are equal according to ==.</returns>
+        public static bool operator ==(
+            BsonArray lhs,
+            BsonArray rhs
+        ) {
+            if (object.ReferenceEquals(lhs, null)) { return object.ReferenceEquals(rhs, null); }
+            return lhs.Equals(rhs);
         }
         #endregion
 
         #region public properties
+        /// <summary>
+        /// Gets or sets the total number of elements the internal data structure can hold without resizing.
+        /// </summary>
+        public int Capacity {
+            get { return values.Capacity; }
+            set { values.Capacity = value; }
+        }
+
         /// <summary>
         /// Gets the count of array elements.
         /// </summary>
@@ -281,21 +329,6 @@ namespace MongoDB.Bson {
         /// <param name="values">A list of values to add to the array.</param>
         /// <returns>A BsonArray or null.</returns>
         public static BsonArray Create(
-            IEnumerable<object> values
-        ) {
-            if (values != null) {
-                return new BsonArray(values);
-            } else {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Creates a new BsonArray.
-        /// </summary>
-        /// <param name="values">A list of values to add to the array.</param>
-        /// <returns>A BsonArray or null.</returns>
-        public static BsonArray Create(
             IEnumerable<ObjectId> values
         ) {
             if (values != null) {
@@ -312,6 +345,21 @@ namespace MongoDB.Bson {
         /// <returns>A BsonArray or null.</returns>
         public static BsonArray Create(
             IEnumerable<string> values
+        ) {
+            if (values != null) {
+                return new BsonArray(values);
+            } else {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Creates a new BsonArray.
+        /// </summary>
+        /// <param name="values">A list of values to add to the array.</param>
+        /// <returns>A BsonArray or null.</returns>
+        public static BsonArray Create(
+            IEnumerable values
         ) {
             if (values != null) {
                 return new BsonArray(values);
@@ -469,22 +517,6 @@ namespace MongoDB.Bson {
         /// <param name="values">A list of values to add to the array.</param>
         /// <returns>The array (so method calls can be chained).</returns>
         public BsonArray AddRange(
-            IEnumerable<object> values
-        ) {
-            if (values != null) {
-                foreach (var value in values) {
-                    this.values.Add(BsonValue.Create(value));
-                }
-            }
-            return this;
-        }
-
-        /// <summary>
-        /// Adds multiple elements to the array.
-        /// </summary>
-        /// <param name="values">A list of values to add to the array.</param>
-        /// <returns>The array (so method calls can be chained).</returns>
-        public BsonArray AddRange(
             IEnumerable<ObjectId> values
         ) {
             if (values != null) {
@@ -512,11 +544,27 @@ namespace MongoDB.Bson {
         }
 
         /// <summary>
+        /// Adds multiple elements to the array.
+        /// </summary>
+        /// <param name="values">A list of values to add to the array.</param>
+        /// <returns>The array (so method calls can be chained).</returns>
+        public BsonArray AddRange(
+            IEnumerable values
+        ) {
+            if (values != null) {
+                foreach (var value in values) {
+                    this.values.Add(BsonValue.Create(value));
+                }
+            }
+            return this;
+        }
+
+        /// <summary>
         /// Creates a shallow clone of the array (see also DeepClone).
         /// </summary>
         /// <returns>A shallow clone of the array.</returns>
         public override BsonValue Clone() {
-            BsonArray clone = new BsonArray();
+            var clone = new BsonArray(values.Capacity);
             foreach (var value in values) {
                 clone.Add(value.Clone());
             }
@@ -606,7 +654,7 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <returns>A deep clone of the array.</returns>
         public override BsonValue DeepClone() {
-            BsonArray clone = new BsonArray();
+            var clone = new BsonArray(values.Capacity);
             foreach (var value in values) {
                 clone.Add(value.DeepClone());
             }
@@ -621,7 +669,7 @@ namespace MongoDB.Bson {
         public bool Equals(
             BsonArray rhs
         ) {
-            if (rhs == null) { return false; }
+            if (object.ReferenceEquals(rhs, null) || GetType() != rhs.GetType()) { return false; }
             return object.ReferenceEquals(this, rhs) || this.values.SequenceEqual(rhs.values);
         }
 
@@ -751,7 +799,7 @@ namespace MongoDB.Bson {
         /// </summary>
         /// <returns>A string representation of the array.</returns>
         public override string ToString() {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             sb.Append("[");
             for (int i = 0; i < values.Count; i++) {
                 if (i > 0) { sb.Append(", "); }
@@ -776,18 +824,16 @@ namespace MongoDB.Bson {
         }
         #endregion
 
-        #region private methods
-        IEnumerator IEnumerable.GetEnumerator() {
-            return GetEnumerator();
-        }
-        #endregion
-
         #region explicit interface implementations
         // our version of Add returns BsonArray
         void ICollection<BsonValue>.Add(
             BsonValue value
         ) {
             Add(value);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
         }
         #endregion
     }

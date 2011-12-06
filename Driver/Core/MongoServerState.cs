@@ -24,10 +24,6 @@ namespace MongoDB.Driver {
     /// </summary>
     public enum MongoServerState {
         /// <summary>
-        /// The state has not yet been determined.
-        /// </summary>
-        None = 0,
-        /// <summary>
         /// Disconnected from the server.
         /// </summary>
         Disconnected,
@@ -38,6 +34,18 @@ namespace MongoDB.Driver {
         /// <summary>
         /// Connected to the server.
         /// </summary>
-        Connected
+        Connected,
+        /// <summary>
+        /// Connected to a subset of the replica set members.
+        /// </summary>
+        ConnectedToSubset,
+        /// <summary>
+        /// The state is temporarily unknown.
+        /// </summary>
+        Unknown,
+        /// <summary>
+        /// Disconnecting from the server (in progress).
+        /// </summary>
+        Disconnecting
     }
 }

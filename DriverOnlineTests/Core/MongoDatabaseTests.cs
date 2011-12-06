@@ -79,7 +79,7 @@ namespace MongoDB.DriverOnlineTests {
         [Test]
         public void TestEvalNoArgsNoLock() {
             var code = "function() { return 1; }";
-            var result = database.Eval(code, null, true);
+            var result = database.Eval(EvalFlags.NoLock, code);
             Assert.AreEqual(1, result.ToInt32());
         }
 
@@ -93,7 +93,7 @@ namespace MongoDB.DriverOnlineTests {
         [Test]
         public void TestEvalWithArgsNoLock() {
             var code = "function(x, y) { return x / y; }";
-            var result = database.Eval(code, new object[] { 6, 2 }, true);
+            var result = database.Eval(EvalFlags.NoLock, code, 6, 2);
             Assert.AreEqual(3, result.ToInt32());
         }
 
@@ -147,6 +147,19 @@ namespace MongoDB.DriverOnlineTests {
         }
 
         [Test]
+        public void TestGetProfilingInfo() {
+            var collection = database["testcollection"];
+            if (collection.Exists()) { collection.Drop(); }
+            collection.Insert(new BsonDocument("x", 1));
+            database.SetProfilingLevel(ProfilingLevel.All);
+            var count = collection.Count();
+            database.SetProfilingLevel(ProfilingLevel.None);
+            var info = database.GetProfilingInfo(Query.Null).SetSortOrder(SortBy.Descending("$natural")).SetLimit(1).First();
+            Assert.IsTrue(info.Timestamp >= new DateTime(2011, 10, 6, 0, 0, 0, DateTimeKind.Utc));
+            Assert.IsTrue(info.Duration >= TimeSpan.Zero);
+        }
+
+        [Test]
         public void TestRenameCollection() {
             var collectionName1 = "testrenamecollection1";
             var collectionName2 = "testrenamecollection2";
@@ -160,6 +173,57 @@ namespace MongoDB.DriverOnlineTests {
             database.RenameCollection(collectionName1, collectionName2);
             Assert.IsFalse(database.CollectionExists(collectionName1));
             Assert.IsTrue(database.CollectionExists(collectionName2));
+        }
+
+        [Test]
+        public void TestRenameCollectionDropTarget() {
+            const string collectionName1 = "testrenamecollectiondroptarget1";
+            const string collectionName2 = "testrenamecollectiondroptarget2";
+            Assert.IsFalse(database.CollectionExists(collectionName1));
+            Assert.IsFalse(database.CollectionExists(collectionName2));
+
+            database[collectionName1].Insert(new BsonDocument());
+            database[collectionName2].Insert(new BsonDocument());
+            Assert.IsTrue(database.CollectionExists(collectionName1));
+            Assert.IsTrue(database.CollectionExists(collectionName2));
+
+            Assert.Throws<MongoCommandException>(() => database.RenameCollection(collectionName1, collectionName2));
+            database.RenameCollection(collectionName1, collectionName2, true);
+            Assert.IsFalse(database.CollectionExists(collectionName1));
+            Assert.IsTrue(database.CollectionExists(collectionName2));
+        }
+
+        [Test]
+        public void TestSetProfilingLevel() {
+            database.SetProfilingLevel(ProfilingLevel.None, TimeSpan.FromMilliseconds(100));
+            var result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.None, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(100), result.Slow);
+
+            database.SetProfilingLevel(ProfilingLevel.Slow);
+            result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.Slow, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(100), result.Slow);
+
+            database.SetProfilingLevel(ProfilingLevel.Slow, TimeSpan.FromMilliseconds(200));
+            result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.Slow, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(200), result.Slow);
+
+            database.SetProfilingLevel(ProfilingLevel.Slow, TimeSpan.FromMilliseconds(100));
+            result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.Slow, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(100), result.Slow);
+
+            database.SetProfilingLevel(ProfilingLevel.All);
+            result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.All, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(100), result.Slow);
+
+            database.SetProfilingLevel(ProfilingLevel.None);
+            result = database.GetProfilingLevel();
+            Assert.AreEqual(ProfilingLevel.None, result.Level);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(100), result.Slow);
         }
 
         [Test]

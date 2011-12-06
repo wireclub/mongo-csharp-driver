@@ -60,6 +60,39 @@
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>..\Keys\TemporaryKeyPair.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DocumentationFile>bin\Debug\MongoDB.Driver.XML</DocumentationFile>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Debug\MongoDB.Driver.dll.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Release\MongoDB.Driver.dll.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -117,9 +150,12 @@
     <Compile Include="Core\MongoCollectionSettings.cs" />
     <Compile Include="Core\MongoDatabaseSettings.cs" />
     <Compile Include="Core\MongoDBRef.cs" />
+    <Compile Include="Core\MongoServerBuildInfo.cs" />
+    <Compile Include="Core\MongoServerInstance.cs" />
     <Compile Include="Core\MongoServerSettings.cs" />
     <Compile Include="Core\MongoUrlBuilder.cs" />
     <Compile Include="Core\Trace.cs" />
+    <Compile Include="Core\MongoUser.cs" />
     <Compile Include="Core\Wrappers\BaseWrapper.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsDocument.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsWrapper.cs" />
@@ -155,8 +191,8 @@
     <Compile Include="GridFS\MongoGridFSCreateOptions.cs" />
     <Compile Include="Internal\DirectConnector.cs" />
     <Compile Include="Internal\IndexCache.cs" />
-    <Compile Include="Internal\MongoCursorEnumerator.cs" />
-    <Compile Include="Internal\MongoKillCursorsMessages.cs" />
+    <Compile Include="Core\MongoCursorEnumerator.cs" />
+    <Compile Include="Internal\MongoKillCursorsMessage.cs" />
     <Compile Include="Internal\BlockingQueue.cs" />
     <Compile Include="Internal\MongoConnection.cs" />
     <Compile Include="Internal\MongoConnectionPool.cs" />
@@ -224,6 +260,13 @@
     </BootstrapperPackage>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
 =======
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -309,6 +352,7 @@
     <Compile Include="Builders\BuilderBase.cs" />
     <Compile Include="Builders\CollectionOptionsBuilder.cs" />
     <Compile Include="Builders\FieldsBuilder.cs" />
+    <Compile Include="Builders\GeoHaystackSearchOptionsBuilder.cs" />
     <Compile Include="Builders\GeoNearOptionsBuilder.cs" />
     <Compile Include="Builders\GroupByBuilder.cs" />
     <Compile Include="Builders\IndexKeysBuilder.cs" />
@@ -321,13 +365,19 @@
     <Compile Include="Core\CommandResults\CommandResult.cs" />
     <Compile Include="Core\CommandResults\DatabaseStatsResult.cs" />
     <Compile Include="Core\CommandResults\FindAndModifyResult.cs" />
+    <Compile Include="Core\CommandResults\GeoHaystackSearchResult.cs" />
     <Compile Include="Core\CommandResults\GeoNearResult.cs" />
     <Compile Include="Core\CommandResults\GetLastErrorResult.cs" />
+    <Compile Include="Core\CommandResults\GetProfilingLevelResult.cs" />
     <Compile Include="Core\CommandResults\SafeModeResult.cs" />
     <Compile Include="Core\CommandResults\ValidateCollectionResult.cs" />
+    <Compile Include="Core\ConnectWaitFor.cs" />
+    <Compile Include="Core\EvalFlags.cs" />
+    <Compile Include="Core\InsertFlags.cs" />
     <Compile Include="Core\Interfaces\IMongoCollectionOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoCommand.cs" />
     <Compile Include="Core\Interfaces\IMongoFields.cs" />
+    <Compile Include="Core\Interfaces\IMongoGeoHaystackSearchOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoGeoNearOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoGroupBy.cs" />
     <Compile Include="Core\Interfaces\IMongoIndexKeys.cs" />
@@ -340,9 +390,15 @@
     <Compile Include="Core\MongoCollectionSettings.cs" />
     <Compile Include="Core\MongoDatabaseSettings.cs" />
     <Compile Include="Core\MongoDBRef.cs" />
+    <Compile Include="Core\MongoInsertOptions.cs" />
+    <Compile Include="Core\MongoServerBuildInfo.cs" />
     <Compile Include="Core\MongoServerInstance.cs" />
     <Compile Include="Core\MongoServerSettings.cs" />
+    <Compile Include="Core\MongoUpdateOptions.cs" />
     <Compile Include="Core\MongoUrlBuilder.cs" />
+    <Compile Include="Core\MongoUser.cs" />
+    <Compile Include="Core\ProfilingLevel.cs" />
+    <Compile Include="Core\SystemProfileInfo.cs" />
     <Compile Include="Core\Wrappers\BaseWrapper.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsDocument.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsWrapper.cs" />
@@ -350,6 +406,8 @@
     <Compile Include="Core\Wrappers\CommandWrapper.cs" />
     <Compile Include="Core\Wrappers\FieldsDocument.cs" />
     <Compile Include="Core\Wrappers\FieldsWrapper.cs" />
+    <Compile Include="Core\Wrappers\GeoHaystackSearchOptionsDocument.cs" />
+    <Compile Include="Core\Wrappers\GeoHaystackSearchOptionsWrapper.cs" />
     <Compile Include="Core\Wrappers\GeoNearOptionsDocument.cs" />
     <Compile Include="Core\Wrappers\GeoNearOptionsWrapper.cs" />
     <Compile Include="Core\Wrappers\GroupByDocument.cs" />
@@ -379,7 +437,7 @@
     <Compile Include="Internal\DirectConnector.cs" />
     <Compile Include="Internal\IndexCache.cs" />
     <Compile Include="Core\MongoCursorEnumerator.cs" />
-    <Compile Include="Internal\MongoKillCursorsMessages.cs" />
+    <Compile Include="Internal\MongoKillCursorsMessage.cs" />
     <Compile Include="Internal\BlockingQueue.cs" />
     <Compile Include="Internal\MongoConnection.cs" />
     <Compile Include="Internal\MongoConnectionPool.cs" />
@@ -392,6 +450,13 @@
     <Compile Include="Internal\MongoReplyMessage.cs" />
     <Compile Include="Internal\MongoUpdateMessage.cs" />
     <Compile Include="Internal\ReplicaSetConnector.cs" />
+    <Compile Include="Linq\MongoLinqFindQuery.cs" />
+    <Compile Include="Linq\MongoLinqExtensionMethods.cs" />
+    <Compile Include="Linq\MongoQueryable.cs" />
+    <Compile Include="Linq\MongoQueryProvider.cs" />
+    <Compile Include="Linq\MongoLinqTranslator.cs" />
+    <Compile Include="Linq\MongoLinqQuery.cs" />
+    <Compile Include="Linq\TypeSystem.cs" />
     <Compile Include="MongoUtils.cs" />
     <Compile Include="MongoDefaults.cs" />
     <Compile Include="GridFS\MongoGridFS.cs" />
@@ -442,8 +507,10 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\GetIndexesResult.cs" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
->>>>>>> a32abf4cb8e20aa5648fd9e50d27af8e72970712
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
@@ -451,4 +518,5 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+>>>>>>> acb6c13bf4a9bef9282ca0aa78951c34f4cce010
 </Project>

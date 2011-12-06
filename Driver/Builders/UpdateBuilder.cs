@@ -31,7 +31,7 @@ namespace MongoDB.Driver.Builders {
     public static class Update {
         #region public static methods
         /// <summary>
-        /// Adds an $addToSet update modifier.
+        /// Adds a value to a named array element if the value is not already in the array (see $addToSet).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to add to the set.</param>
@@ -44,10 +44,23 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to add to the set.</param>
+        /// <param name="values">The values to add to the set.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public static UpdateBuilder AddToSetEach(
+            string name,
+            BsonArray values
+        ) {
+            return new UpdateBuilder().AddToSetEach(name, values);
+        }
+
+        /// <summary>
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder AddToSetEach(
             string name,
@@ -57,10 +70,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to add to the set.</param>
+        /// <param name="values">The values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder AddToSetEach(
             string name,
@@ -70,10 +83,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of wrapped values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to add to the set.</param>
+        /// <param name="values">The wrapped values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder AddToSetEachWrapped<T>(
             string name,
@@ -83,10 +97,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of wrapped values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to add to the set.</param>
+        /// <param name="values">The wrapped values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder AddToSetEachWrapped<T>(
             string name,
@@ -96,8 +111,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet update modifier.
+        /// Adds a wrapped value to a named array element if the value is not already in the array (see $addToSet).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -109,10 +125,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise and update modifier.
+        /// Sets the named element to the bitwise and of its value with another value (see $bit with "and").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be and-ed with the element.</param>
+        /// <param name="value">The value to be and-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder BitwiseAnd(
             string name,
@@ -122,10 +138,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise and update modifier.
+        /// Sets the named element to the bitwise and of its value with another value (see $bit with "and").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be and-ed with the element.</param>
+        /// <param name="value">The value to be and-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder BitwiseAnd(
             string name,
@@ -135,10 +151,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise or update modifier.
+        /// Sets the named element to the bitwise or of its value with another value (see $bit with "or").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be or-ed with the element.</param>
+        /// <param name="value">The value to be or-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder BitwiseOr(
             string name,
@@ -148,10 +164,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise or update modifier.
+        /// Sets the named element to the bitwise or of its value with another value (see $bit with "or").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be or-ed with the element.</param>
+        /// <param name="value">The value to be or-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder BitwiseOr(
             string name,
@@ -161,7 +177,33 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Combines several UpdateBuilders into a single UpdateBuilder.
+        /// </summary>
+        /// <param name="updates">The UpdateBuilders to combine.</param>
+        /// <returns>A combined UpdateBuilder.</returns>
+        public static UpdateBuilder Combine(
+            IEnumerable<UpdateBuilder> updates
+        ) {
+            var combined = new UpdateBuilder();
+            foreach (var update in updates) {
+                combined.Combine(update);
+            }
+            return combined;
+        }
+
+        /// <summary>
+        /// Combines several UpdateBuilders into a single UpdateBuilder.
+        /// </summary>
+        /// <param name="updates">The UpdateBuilders to combine.</param>
+        /// <returns>A combined UpdateBuilder.</returns>
+        public static UpdateBuilder Combine(
+            params UpdateBuilder[] updates
+        ) {
+            return Combine((IEnumerable<UpdateBuilder>) updates);
+        }
+
+        /// <summary>
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -174,7 +216,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -187,7 +229,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -200,7 +242,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pop update modifier that removes the first element of an array.
+        /// Removes the first value from the named array element (see $pop).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -211,7 +253,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pop update modifier that removes the last element of an array.
+        /// Removes the last value from the named array element (see $pop).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -222,7 +264,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes all values from the named array element that are equal to some value (see $pull).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to remove.</param>
@@ -235,7 +277,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes all values from the named array element that match some query (see $pull).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="query">A query that specifies which elements to remove.</param>
@@ -248,10 +290,23 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to remove.</param>
+        /// <param name="values">The values to remove.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public static UpdateBuilder PullAll(
+            string name,
+            BsonArray values
+        ) {
+            return new UpdateBuilder().PullAll(name, values);
+        }
+
+        /// <summary>
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PullAll(
             string name,
@@ -261,10 +316,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to remove.</param>
+        /// <param name="values">The values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PullAll(
             string name,
@@ -274,10 +329,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of wrapped values (see $pullAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to remove.</param>
+        /// <param name="values">The wrapped values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PullAllWrapped<T>(
             string name,
@@ -287,10 +343,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of wrapped values (see $pullAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to remove.</param>
+        /// <param name="values">The wrapped values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PullAllWrapped<T>(
             string name,
@@ -300,8 +357,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes all values from the named array element that are equal to some wrapped value (see $pull).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -313,7 +371,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $push update modifider.
+        /// Adds a value to the end of the named array element (see $push).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to add to the end of the array.</param>
@@ -326,10 +384,23 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of values to the end of the named array element (see $pushAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to add to the end of the array.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public static UpdateBuilder PushAll(
+            string name,
+            BsonArray values
+        ) {
+            return new UpdateBuilder().PushAll(name, values);
+        }
+
+        /// <summary>
+        /// Adds a list of values to the end of the named array element (see $pushAll).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PushAll(
             string name,
@@ -339,10 +410,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of values to the end of the named array element (see $pushAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to add to the end of the array.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PushAll(
             string name,
@@ -352,10 +423,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of wrapped values to the end of the named array element (see $pushAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to add to the end of the array.</param>
+        /// <param name="values">The wrapped values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PushAllWrapped<T>(
             string name,
@@ -365,10 +437,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of wrapped values to the end of the named array element (see $pushAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to add to the end of the array.</param>
+        /// <param name="values">The wrapped values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public static UpdateBuilder PushAllWrapped<T>(
             string name,
@@ -378,8 +451,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $push update modifider.
+        /// Adds a wrapped value to the end of the named array element (see $push).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -391,7 +465,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $rename update modifier.
+        /// Renames an element (see $rename).
         /// </summary>
         /// <param name="oldElementName">The name of the element to be renamed.</param>
         /// <param name="newElementName">The new name of the element.</param>
@@ -404,10 +478,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a replacement document as the update modifier.
+        /// Replaces the entire document with a new document (the _id must remain the same).
         /// </summary>
         /// <typeparam name="TNominalType">The nominal type of the replacement document</typeparam>
-        /// <param name="document">The document.</param>
+        /// <param name="document">The replacement document.</param>
         /// <returns>An UpdateWrapper.</returns>
         public static IMongoUpdate Replace<TNominalType>(
             TNominalType document
@@ -416,10 +490,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a replacement document as the update modifier.
+        /// Replaces the entire document with a new document (the _id must remain the same).
         /// </summary>
         /// <param name="nominalType">The nominal type of the replacement document</param>
-        /// <param name="document">The document.</param>
+        /// <param name="document">The replacement document.</param>
         /// <returns>An UpdateWrapper.</returns>
         public static IMongoUpdate Replace(
             Type nominalType,
@@ -429,7 +503,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $set update modifier.
+        /// Sets the value of the named element to a new value (see $set).
         /// </summary>
         /// <param name="name">The name of the element to be set.</param>
         /// <param name="value">The new value.</param>
@@ -442,8 +516,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $set update modifier.
+        /// Sets the value of the named element to a new wrapped value (see $set).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the element to be set.</param>
         /// <param name="value">The new wrapped value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -455,7 +530,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $unset update modifier.
+        /// Removes the named element from the document (see $unset).
         /// </summary>
         /// <param name="name">The name of the element to be removed.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -485,9 +560,15 @@ namespace MongoDB.Driver.Builders {
         }
         #endregion
 
+        #region internal properties
+        internal BsonDocument Document {
+            get { return document; }
+        }
+        #endregion
+
         #region public methods
         /// <summary>
-        /// Adds an $addToSet update modifier.
+        /// Adds a value to a named array element if the value is not already in the array (see $addToSet).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to add to the set.</param>
@@ -506,16 +587,16 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to add to the set.</param>
+        /// <param name="values">The values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder AddToSetEach(
             string name,
-            IEnumerable<BsonValue> values
+            BsonArray values
         ) {
-            var arg = new BsonDocument("$each", new BsonArray(values));
+            var arg = new BsonDocument("$each", values);
             BsonElement element;
             if (document.TryGetElement("$addToSet", out element)) {
                 element.Value.AsBsonDocument.Add(name, arg);
@@ -526,10 +607,23 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to add to the set.</param>
+        /// <param name="values">The values to add to the set.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public UpdateBuilder AddToSetEach(
+            string name,
+            IEnumerable<BsonValue> values
+        ) {
+            return AddToSetEach(name, new BsonArray(values));
+        }
+
+        /// <summary>
+        /// Adds a list of values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder AddToSetEach(
             string name,
@@ -539,10 +633,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of wrapped values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to add to the set.</param>
+        /// <param name="values">The wrapped values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder AddToSetEachWrapped<T>(
             string name,
@@ -553,10 +648,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet/$each update modifier.
+        /// Adds a list of wrapped values to a named array element adding each value only if it not already in the array (see $addToSet and $each).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to add to the set.</param>
+        /// <param name="values">The wrapped values to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder AddToSetEachWrapped<T>(
             string name,
@@ -566,8 +662,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $addToSet update modifier.
+        /// Adds a wrapped value to a named array element if the value is not already in the array (see $addToSet).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to add to the set.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -580,10 +677,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise and update modifier.
+        /// Sets the named element to the bitwise and of its value with another value (see $bit with "and").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be and-ed with the element.</param>
+        /// <param name="value">The value to be and-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder BitwiseAnd(
             string name,
@@ -594,10 +691,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise and update modifier.
+        /// Sets the named element to the bitwise and of its value with another value (see $bit with "and").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be and-ed with the element.</param>
+        /// <param name="value">The value to be and-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder BitwiseAnd(
             string name,
@@ -608,10 +705,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise or update modifier.
+        /// Sets the named element to the bitwise or of its value with another value (see $bit with "or").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be or-ed with the element.</param>
+        /// <param name="value">The value to be or-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder BitwiseOr(
             string name,
@@ -622,10 +719,10 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a bitwise or update modifier.
+        /// Sets the named element to the bitwise or of its value with another value (see $bit with "or").
         /// </summary>
         /// <param name="name">The name of the element to be modified.</param>
-        /// <param name="value">The value to be or-ed with the element.</param>
+        /// <param name="value">The value to be or-ed with the current value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder BitwiseOr(
             string name,
@@ -636,7 +733,28 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Combines another UpdateBuilder into this one.
+        /// </summary>
+        /// <param name="otherUpdate">The UpdateBuilder to combine into this one.</param>
+        /// <returns>A combined UpdateBuilder.</returns>
+        public UpdateBuilder Combine(
+            UpdateBuilder otherUpdate
+        ) {
+            foreach (var otherOperation in otherUpdate.Document) {
+                var otherOperationName = otherOperation.Name;
+                var otherTargets = otherOperation.Value.AsBsonDocument;
+                BsonElement operation;
+                if (document.TryGetElement(otherOperationName, out operation)) {
+                    operation.Value.AsBsonDocument.Add(otherTargets);
+                } else {
+                    document.Add(otherOperationName, otherTargets);
+                }
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -650,7 +768,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -664,7 +782,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $inc update modifier.
+        /// Increments the named element by a value (see $inc).
         /// </summary>
         /// <param name="name">The name of the element to be incremented.</param>
         /// <param name="value">The value to increment by.</param>
@@ -678,28 +796,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pop update modifier that removes the first element of an array.
+        /// Removes the first value from the named array element (see $pop).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PopFirst(
-            string name
-        ) {
-            BsonElement element;
-            if (document.TryGetElement("$pop", out element)) {
-                element.Value.AsBsonDocument.Add(name, 1);
-            } else {
-                document.Add("$pop", new BsonDocument(name, 1));
-            }
-            return this;
-        }
-
-        /// <summary>
-        /// Adds a $pop update modifier that removes the last element of an array.
-        /// </summary>
-        /// <param name="name">The name of the array element.</param>
-        /// <returns>The builder (so method calls can be chained).</returns>
-        public UpdateBuilder PopLast(
             string name
         ) {
             BsonElement element;
@@ -712,7 +813,24 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes the last value from the named array element (see $pop).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public UpdateBuilder PopLast(
+            string name
+        ) {
+            BsonElement element;
+            if (document.TryGetElement("$pop", out element)) {
+                element.Value.AsBsonDocument.Add(name, 1);
+            } else {
+                document.Add("$pop", new BsonDocument(name, 1));
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// Removes all values from the named array element that are equal to some value (see $pull).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to remove.</param>
@@ -731,7 +849,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes all values from the named array element that match some query (see $pull).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="query">A query that specifies which elements to remove.</param>
@@ -751,30 +869,42 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to remove.</param>
+        /// <param name="values">The values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PullAll(
             string name,
-            IEnumerable<BsonValue> values
+            BsonArray values
         ) {
-            var array = new BsonArray(values);
             BsonElement element;
             if (document.TryGetElement("$pullAll", out element)) {
-                element.Value.AsBsonDocument.Add(name, array);
+                element.Value.AsBsonDocument.Add(name, values);
             } else {
-                document.Add("$pullAll", new BsonDocument(name, array));
+                document.Add("$pullAll", new BsonDocument(name, values));
             }
             return this;
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to remove.</param>
+        /// <param name="values">The values to remove.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public UpdateBuilder PullAll(
+            string name,
+            IEnumerable<BsonValue> values
+        ) {
+            return PullAll(name, new BsonArray(values));
+        }
+
+        /// <summary>
+        /// Removes all values from the named array element that are equal to any of a list of values (see $pullAll).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PullAll(
             string name,
@@ -784,10 +914,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of wrapped values (see $pullAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to remove.</param>
+        /// <param name="values">The wrapped values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PullAllWrapped<T>(
             string name,
@@ -804,10 +935,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pullAll update modifier.
+        /// Removes all values from the named array element that are equal to any of a list of wrapped values (see $pullAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to remove.</param>
+        /// <param name="values">The wrapped values to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PullAllWrapped<T>(
             string name,
@@ -817,8 +949,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pull update modifier.
+        /// Removes all values from the named array element that are equal to some wrapped value (see $pull).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to remove.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -837,7 +970,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $push update modifider.
+        /// Adds a value to the end of the named array element (see $push).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The value to add to the end of the array.</param>
@@ -856,30 +989,42 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of values to the end of the named array element (see $pushAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of values to add to the end of the array.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PushAll(
             string name,
-            IEnumerable<BsonValue> values
+            BsonArray values
         ) {
-            var array = new BsonArray(values);
             BsonElement element;
             if (document.TryGetElement("$pushAll", out element)) {
-                element.Value.AsBsonDocument.Add(name, array);
+                element.Value.AsBsonDocument.Add(name, values);
             } else {
-                document.Add("$pushAll", new BsonDocument(name, array));
+                document.Add("$pushAll", new BsonDocument(name, values));
             }
             return this;
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of values to the end of the named array element (see $pushAll).
         /// </summary>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more values to add to the end of the array.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
+        /// <returns>The builder (so method calls can be chained).</returns>
+        public UpdateBuilder PushAll(
+            string name,
+            IEnumerable<BsonValue> values
+        ) {
+            return PushAll(name, new BsonArray(values));
+        }
+
+        /// <summary>
+        /// Adds a list of values to the end of the named array element (see $pushAll).
+        /// </summary>
+        /// <param name="name">The name of the array element.</param>
+        /// <param name="values">The values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PushAll(
             string name,
@@ -889,10 +1034,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of wrapped values to the end of the named array element (see $pushAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">A list of wrapped values to add to the end of the array.</param>
+        /// <param name="values">The wrapped values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PushAllWrapped<T>(
             string name,
@@ -909,10 +1055,11 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $pushAll update modifier.
+        /// Adds a list of wrapped values to the end of the named array element (see $pushAll).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped values.</typeparam>
         /// <param name="name">The name of the array element.</param>
-        /// <param name="values">One or more wrapped values to add to the end of the array.</param>
+        /// <param name="values">The wrapped values to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
         public UpdateBuilder PushAllWrapped<T>(
             string name,
@@ -922,8 +1069,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $push update modifider.
+        /// Adds a wrapped value to the end of the named array element (see $push).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the array element.</param>
         /// <param name="value">The wrapped value to add to the end of the array.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -942,7 +1090,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $rename update modifider.
+        /// Renames an element (see $rename).
         /// </summary>
         /// <param name="oldElementName">The old element name.</param>
         /// <param name="newElementName">The new element name.</param>
@@ -961,7 +1109,7 @@ namespace MongoDB.Driver.Builders {
         }
         
         /// <summary>
-        /// Adds a $set update modifier.
+        /// Sets the value of the named element to a new value (see $set).
         /// </summary>
         /// <param name="name">The name of the element to be set.</param>
         /// <param name="value">The new value.</param>
@@ -980,8 +1128,9 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds a $set update modifier.
+        /// Sets the value of the named element to a new wrapped value (see $set).
         /// </summary>
+        /// <typeparam name="T">The type of wrapped value.</typeparam>
         /// <param name="name">The name of the element to be set.</param>
         /// <param name="value">The new wrapped value.</param>
         /// <returns>The builder (so method calls can be chained).</returns>
@@ -1008,7 +1157,7 @@ namespace MongoDB.Driver.Builders {
         }
 
         /// <summary>
-        /// Adds an $unset update modifier.
+        /// Removes the named element from the document (see $unset).
         /// </summary>
         /// <param name="name">The name of the element to be removed.</param>
         /// <returns>The builder (so method calls can be chained).</returns>

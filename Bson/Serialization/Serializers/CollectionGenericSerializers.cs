@@ -27,6 +27,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
     /// <summary>
     /// Represents a serializer for enumerable values.
     /// </summary>
+    /// <typeparam name="T">The type of the elements.</typeparam>
     public class EnumerableSerializer<T> : BsonBaseSerializer {
         #region constructors
         /// <summary>
@@ -42,11 +43,13 @@ namespace MongoDB.Bson.Serialization.Serializers {
         /// </summary>
         /// <param name="bsonReader">The BsonReader.</param>
         /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="actualType">The actual type of the object.</param>
         /// <param name="options">The serialization options.</param>
         /// <returns>An object.</returns>
         public override object Deserialize(
             BsonReader bsonReader,
             Type nominalType,
+            Type actualType, // ignored
             IBsonSerializationOptions options
         ) {
             var bsonType = bsonReader.CurrentBsonType;
@@ -100,6 +103,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
     /// <summary>
     /// Represents a serializer for Queues.
     /// </summary>
+    /// <typeparam name="T">The type of the elements.</typeparam>
     public class QueueSerializer<T> : BsonBaseSerializer {
         #region constructors
         /// <summary>
@@ -115,11 +119,13 @@ namespace MongoDB.Bson.Serialization.Serializers {
         /// </summary>
         /// <param name="bsonReader">The BsonReader.</param>
         /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="actualType">The actual type of the object.</param>
         /// <param name="options">The serialization options.</param>
         /// <returns>An object.</returns>
         public override object Deserialize(
             BsonReader bsonReader,
             Type nominalType,
+            Type actualType, // ignored
             IBsonSerializationOptions options
         ) {
             var bsonType = bsonReader.CurrentBsonType;
@@ -173,6 +179,7 @@ namespace MongoDB.Bson.Serialization.Serializers {
     /// <summary>
     /// Represents a serializer for Stacks.
     /// </summary>
+    /// <typeparam name="T">The type of the elements.</typeparam>
     public class StackSerializer<T> : BsonBaseSerializer {
         #region constructors
         /// <summary>
@@ -188,11 +195,13 @@ namespace MongoDB.Bson.Serialization.Serializers {
         /// </summary>
         /// <param name="bsonReader">The BsonReader.</param>
         /// <param name="nominalType">The nominal type of the object.</param>
+        /// <param name="actualType">The actual type of the object.</param>
         /// <param name="options">The serialization options.</param>
         /// <returns>An object.</returns>
         public override object Deserialize(
             BsonReader bsonReader,
             Type nominalType,
+            Type actualType, // ignored
             IBsonSerializationOptions options
         ) {
             var bsonType = bsonReader.CurrentBsonType;

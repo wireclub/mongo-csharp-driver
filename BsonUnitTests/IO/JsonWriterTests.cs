@@ -189,7 +189,7 @@ namespace MongoDB.BsonUnitTests.IO {
                 new TestData<BsonBinaryData>(new byte[] { 1 }, "new BinData(0, \"AQ==\")"),
                 new TestData<BsonBinaryData>(new byte[] { 1, 2 }, "new BinData(0, \"AQI=\")"),
                 new TestData<BsonBinaryData>(new byte[] { 1, 2, 3 }, "new BinData(0, \"AQID\")"),
-                new TestData<BsonBinaryData>(Guid.Empty, "new BinData(3, \"AAAAAAAAAAAAAAAAAAAAAA==\")")
+                new TestData<BsonBinaryData>(Guid.Empty, "CSUUID(\"00000000-0000-0000-0000-000000000000\")")
             };
             foreach (var test in tests) {
                 var json = test.Value.ToJson();
@@ -265,15 +265,15 @@ namespace MongoDB.BsonUnitTests.IO {
             var utcNow = DateTime.UtcNow;
             var utcNowTruncated = utcNow.AddTicks(-(utcNow.Ticks % 10000));
             var ms = BsonUtils.ToMillisecondsSinceEpoch(utcNowTruncated);
-            var tenGenDate = string.Format("Date({0})", ms);
+            var tenGenDate = string.Format("new Date({0})", ms);
             var tests = new TestData<BsonDateTime>[] {
-                new TestData<BsonDateTime>(BsonDateTime.Create(long.MinValue), "Date(-9223372036854775808)"),
-                new TestData<BsonDateTime>(BsonDateTime.Create(0), "Date(0)"),
-                new TestData<BsonDateTime>(BsonDateTime.Create(long.MaxValue), "Date(9223372036854775807)"),
-                new TestData<BsonDateTime>(BsonDateTime.Create(DateTime.MinValue), "Date(-62135596800000)"),
-                new TestData<BsonDateTime>(BsonDateTime.Create(BsonConstants.UnixEpoch), "Date(0)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(long.MinValue), "new Date(-9223372036854775808)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(0), "new Date(0)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(long.MaxValue), "new Date(9223372036854775807)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(DateTime.MinValue), "new Date(-62135596800000)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(BsonConstants.UnixEpoch), "new Date(0)"),
                 new TestData<BsonDateTime>(BsonDateTime.Create(utcNowTruncated), tenGenDate),
-                new TestData<BsonDateTime>(BsonDateTime.Create(DateTime.MaxValue), "Date(253402300799999)"),
+                new TestData<BsonDateTime>(BsonDateTime.Create(DateTime.MaxValue), "new Date(253402300799999)"),
             };
             var jsonSettings = new JsonWriterSettings { OutputMode = JsonOutputMode.TenGen };
             foreach (var test in tests) {
@@ -308,7 +308,7 @@ namespace MongoDB.BsonUnitTests.IO {
             var document = new BsonDocument {
                 { "guid", new Guid("B5F21E0C2A0D42d6AD03D827008D8AB6") }
             };
-            string expected = "{ \"guid\" : new BinData(3, \"DB7ytQ0q1kKtA9gnAI2Ktg==\") }";
+            string expected = "{ \"guid\" : CSUUID(\"b5f21e0c-2a0d-42d6-ad03-d827008d8ab6\") }";
             string actual = document.ToJson();
             Assert.AreEqual(expected, actual);
         }
@@ -370,10 +370,11 @@ namespace MongoDB.BsonUnitTests.IO {
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a"), "/a/"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a/b"), "/a\\/b/"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a\\b"), "/a\\\\b/"),
-                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "g"), "/a/g"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "i"), "/a/i"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "m"), "/a/m"),
-                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "gim"), "/a/gim"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "x"), "/a/x"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "s"), "/a/s"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "imxs"), "/a/imxs"),
             };
             foreach (var test in tests) {
                 var json = test.Value.ToJson();
@@ -390,10 +391,11 @@ namespace MongoDB.BsonUnitTests.IO {
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a"), "{ \"$regex\" : \"a\", \"$options\" : \"\" }"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a/b"), "{ \"$regex\" : \"a/b\", \"$options\" : \"\" }"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a\\b"), "{ \"$regex\" : \"a\\\\b\", \"$options\" : \"\" }"),
-                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "g"), "{ \"$regex\" : \"a\", \"$options\" : \"g\" }"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "i"), "{ \"$regex\" : \"a\", \"$options\" : \"i\" }"),
                 new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "m"), "{ \"$regex\" : \"a\", \"$options\" : \"m\" }"),
-                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "gim"), "{ \"$regex\" : \"a\", \"$options\" : \"gim\" }"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "x"), "{ \"$regex\" : \"a\", \"$options\" : \"x\" }"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "s"), "{ \"$regex\" : \"a\", \"$options\" : \"s\" }"),
+                new TestData<BsonRegularExpression>(BsonRegularExpression.Create("a", "imxs"), "{ \"$regex\" : \"a\", \"$options\" : \"imxs\" }"),
             };
             var jsonSettings = new JsonWriterSettings { OutputMode = JsonOutputMode.Strict };
             foreach (var test in tests) {

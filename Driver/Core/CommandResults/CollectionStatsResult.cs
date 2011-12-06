@@ -89,10 +89,24 @@ namespace MongoDB.Driver {
         }
 
         /// <summary>
+        /// Gets whether the collection is capped.
+        /// </summary>
+        public bool IsCapped {
+            get { return response["capped", false].ToBoolean(); }
+        }
+
+        /// <summary>
         /// Gets the last extent size.
         /// </summary>
         public long LastExtentSize {
             get { return response["lastExtentSize"].ToInt64(); }
+        }
+
+        /// <summary>
+        /// Gets the index count.
+        /// </summary>
+        public long MaxDocuments {
+            get { return response["max", 0].AsInt32; }
         }
 
         /// <summary>

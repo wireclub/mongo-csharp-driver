@@ -75,7 +75,6 @@ namespace MongoDB.Bson {
             { Mapping.FromTo(typeof(BsonBinaryData), BsonType.Binary), Conversion.None },
             { Mapping.FromTo(typeof(BsonBoolean), BsonType.Boolean), Conversion.None },
             { Mapping.FromTo(typeof(BsonDateTime), BsonType.DateTime), Conversion.None },
-            { Mapping.FromTo(typeof(BsonDocument), BsonType.Array), Conversion.BsonDocumentToBsonArray },
             { Mapping.FromTo(typeof(BsonDocument), BsonType.Document), Conversion.None },
             { Mapping.FromTo(typeof(BsonDouble), BsonType.Double), Conversion.None },
             { Mapping.FromTo(typeof(BsonInt32), BsonType.Int32), Conversion.None },
@@ -207,8 +206,8 @@ namespace MongoDB.Bson {
             // these coercions can't be handled by the conversions table (because of the interfaces)
             switch (bsonType) {
                 case BsonType.Array:
-                    if (value is IEnumerable<object>) {
-                        return new BsonArray((IEnumerable<object>) value);
+                    if (value is IEnumerable) {
+                        return new BsonArray((IEnumerable) value);
                     }
                     break;
                 case BsonType.Document:
@@ -275,16 +274,19 @@ namespace MongoDB.Bson {
             }
 
             // these mappings can't be handled by the mappings table (because of the interfaces)
-            if (value is IEnumerable<object>) {
-                bsonValue = new BsonArray((IEnumerable<object>) value);
-                return true;
-            }
             if (value is IDictionary<string, object>) {
                 bsonValue = new BsonDocument((IDictionary<string, object>) value);
                 return true;
             }
             if (value is IDictionary) {
                 bsonValue = new BsonDocument((IDictionary) value);
+                return true;
+            }
+
+            // NOTE: the check for IEnumerable must be after the check for IDictionary
+            // because IDictionary implements IEnumerable
+            if (value is IEnumerable) {
+                bsonValue = new BsonArray((IEnumerable) value);
                 return true;
             }
 
@@ -319,7 +321,6 @@ namespace MongoDB.Bson {
                 case Conversion.CharToBsonInt64: return new BsonInt64((long) (char) value);
                 case Conversion.DateTimeOffsetToBsonDateTime: return new BsonDateTime(((DateTimeOffset) value).UtcDateTime);
                 case Conversion.DateTimeToBsonDateTime: return new BsonDateTime((DateTime) value);
-                case Conversion.BsonDocumentToBsonArray: return new BsonArray(((BsonDocument) value).Values);
                 case Conversion.DoubleToBsonBoolean: var d = (double) value; return BsonBoolean.Create(!(double.IsNaN(d) || d == 0.0));
                 case Conversion.GuidToBsonBinary: return new BsonBinaryData((Guid) value);
                 case Conversion.Int16ToBsonBoolean: return BsonBoolean.Create((short) value != 0);
@@ -399,7 +400,6 @@ namespace MongoDB.Bson {
             CharToBsonInt64,
             DateTimeOffsetToBsonDateTime,
             DateTimeToBsonDateTime,
-            BsonDocumentToBsonArray,
             DoubleToBsonBoolean,
             GuidToBsonBinary,
             Int16ToBsonBoolean,

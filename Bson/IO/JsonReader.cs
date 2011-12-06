@@ -19,6 +19,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 
 namespace MongoDB.Bson.IO {
@@ -76,9 +77,11 @@ namespace MongoDB.Bson.IO {
         /// </summary>
         /// <param name="bytes">The binary data.</param>
         /// <param name="subType">The binary data subtype.</param>
+        /// <param name="guidRepresentation">The representation for Guids.</param>
         public override void ReadBinaryData(
             out byte[] bytes,
-            out BsonBinarySubType subType
+            out BsonBinarySubType subType,
+            out GuidRepresentation guidRepresentation
         ) {
             if (disposed) { ThrowObjectDisposedException(); }
             VerifyBsonType("ReadBinaryData", BsonType.Binary);
@@ -86,6 +89,7 @@ namespace MongoDB.Bson.IO {
             var binaryData = currentValue.AsBsonBinaryData;
             bytes = binaryData.Bytes;
             subType = binaryData.SubType;
+            guidRepresentation = binaryData.GuidRepresentation;
         }
 
         /// <summary>
@@ -203,23 +207,42 @@ namespace MongoDB.Bson.IO {
                             break;
                         case "BinData":
                             currentBsonType = BsonType.Binary;
-                            currentValue = ParseBinaryShell();
+                            currentValue = ParseBinDataConstructor();
                             break;
                         case "Date":
-                            currentBsonType = BsonType.DateTime;
-                            currentValue = ParseDateTimeTenGen();
+                            currentBsonType = BsonType.String;
+                            currentValue = ParseDateTimeConstructor(false); // withNew = false
+                            break;
+                        case "HexData":
+                            currentBsonType = BsonType.Binary;
+                            currentValue = ParseHexDataConstructor();
                             break;
                         case "ISODate":
                             currentBsonType = BsonType.DateTime;
-                            currentValue = ParseDateTimeShell();
+                            currentValue = ParseISODateTimeConstructor();
                             break;
                         case "NumberLong":
                             currentBsonType = BsonType.Int64;
-                            currentValue = ParseNumberLong();
+                            currentValue = ParseNumberLongConstructor();
                             break;
                         case "ObjectId":
                             currentBsonType = BsonType.ObjectId;
-                            currentValue = ParseObjectIdShell();
+                            currentValue = ParseObjectIdConstructor();
+                            break;
+                        case "RegExp":
+                            currentBsonType = BsonType.RegularExpression;
+                            currentValue = ParseRegularExpressionConstructor();
+                            break;
+                        case "UUID":
+                        case "GUID":
+                        case "CSUUID":
+                        case "CSGUID":
+                        case "JUUID":
+                        case "JGUID":
+                        case "PYUUID":
+                        case "PYGUID":
+                            currentBsonType = BsonType.Binary;
+                            currentValue = ParseUUIDConstructor(valueToken.Lexeme);
                             break;
                         case "new":
                             currentBsonType = ParseNew(out currentValue);
@@ -666,6 +689,30 @@ namespace MongoDB.Bson.IO {
             return string.Format("Invalid JSON token: '{0}'", token.Lexeme);
         }
 
+        private string FormatJavaScriptDateTimeString(
+            DateTime dateTime
+        ) {
+            var utc = BsonUtils.ToUniversalTime(dateTime);
+            var local = BsonUtils.ToLocalTime(utc, DateTimeKind.Local);
+            var offset = local - utc;
+            var offsetSign = "+";
+            if (offset < TimeSpan.Zero) {
+                offset = -offset;
+                offsetSign = "-";
+            }
+            var timeZone = TimeZone.CurrentTimeZone;
+            var timeZoneName = local.IsDaylightSavingTime() ? timeZone.DaylightName : timeZone.StandardName;
+            var dateTimeString = string.Format(
+                "{0} GMT{1}{2:D2}{3:D2} ({4})",
+                local.ToString("ddd MMM dd yyyy HH:mm:ss"),
+                offsetSign,
+                offset.Hours,
+                offset.Minutes,
+                timeZoneName
+            );
+            return dateTimeString;
+        }
+
         private BsonReaderState GetNextState() {
             switch (context.ContextType) {
                 case ContextType.Array:
@@ -678,7 +725,7 @@ namespace MongoDB.Bson.IO {
             }
         }
 
-        private BsonValue ParseBinaryShell() {
+        private BsonValue ParseBinDataConstructor() {
             VerifyToken("(");
             var subTypeToken = PopToken();
             if (subTypeToken.Type != JsonTokenType.Int32) {
@@ -694,10 +741,16 @@ namespace MongoDB.Bson.IO {
             VerifyToken(")");
             var bytes = Convert.FromBase64String(bytesToken.StringValue);
             var subType = (BsonBinarySubType) subTypeToken.Int32Value;
-            return new BsonBinaryData(bytes, subType); // don't worry about UUIDs here (that's handled at a higher level)
+            GuidRepresentation guidRepresentation;
+            switch (subType) {
+                case BsonBinarySubType.UuidLegacy: guidRepresentation = settings.GuidRepresentation; break;
+                case BsonBinarySubType.UuidStandard: guidRepresentation = GuidRepresentation.Standard; break;
+                default: guidRepresentation = GuidRepresentation.Unspecified; break;
+            }
+            return new BsonBinaryData(bytes, subType, guidRepresentation);
         }
 
-        private BsonValue ParseBinaryStrict() {
+        private BsonValue ParseBinDataExtendedJson() {
             VerifyToken(":");
             var bytesToken = PopToken();
             if (bytesToken.Type != JsonTokenType.String) {
@@ -715,10 +768,41 @@ namespace MongoDB.Bson.IO {
             VerifyToken("}");
             var bytes = Convert.FromBase64String(bytesToken.StringValue);
             var subType = (BsonBinarySubType) Convert.ToInt32(subTypeToken.StringValue, 16);
-            return new BsonBinaryData(bytes, subType); // don't worry about UUIDs here (that's handled at a higher level)
+            GuidRepresentation guidRepresentation;
+            switch (subType) {
+                case BsonBinarySubType.UuidLegacy: guidRepresentation = settings.GuidRepresentation; break;
+                case BsonBinarySubType.UuidStandard: guidRepresentation = GuidRepresentation.Standard; break;
+                default: guidRepresentation = GuidRepresentation.Unspecified; break;
+            }
+            return new BsonBinaryData(bytes, subType, guidRepresentation);
         }
 
-        private BsonType ParseJavaScript(
+        private BsonValue ParseHexDataConstructor() {
+            VerifyToken("(");
+            var subTypeToken = PopToken();
+            if (subTypeToken.Type != JsonTokenType.Int32) {
+                var message = string.Format("JSON reader expected a binary subtype but found '{0}'.", subTypeToken.Lexeme);
+                throw new FileFormatException(message);
+            }
+            VerifyToken(",");
+            var bytesToken = PopToken();
+            if (bytesToken.Type != JsonTokenType.String) {
+                var message = string.Format("JSON reader expected a string but found '{0}'.", bytesToken.Lexeme);
+                throw new FileFormatException(message);
+            }
+            VerifyToken(")");
+            var bytes = BsonUtils.ParseHexString(bytesToken.StringValue);
+            var subType = (BsonBinarySubType) subTypeToken.Int32Value;
+            GuidRepresentation guidRepresentation;
+            switch (subType) {
+                case BsonBinarySubType.UuidLegacy: guidRepresentation = settings.GuidRepresentation; break;
+                case BsonBinarySubType.UuidStandard: guidRepresentation = GuidRepresentation.Standard; break;
+                default: guidRepresentation = GuidRepresentation.Unspecified; break;
+            }
+            return new BsonBinaryData(bytes, subType, guidRepresentation);
+        }
+
+        private BsonType ParseJavaScriptExtendedJson(
             out BsonValue value
         ) {
             VerifyToken(":");
@@ -744,7 +828,7 @@ namespace MongoDB.Bson.IO {
             }
         }
 
-        private BsonValue ParseDateTimeShell() {
+        private BsonValue ParseISODateTimeConstructor() {
             VerifyToken("(");
             var valueToken = PopToken();
             if (valueToken.Type != JsonTokenType.String) {
@@ -758,10 +842,10 @@ namespace MongoDB.Bson.IO {
                             "yyyy-MM-ddTHH:mm:ss.FFFFFFFK",
                         };
             var utcDateTime = DateTime.ParseExact(valueToken.StringValue, formats, null, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
-            return BsonDateTime.Create(utcDateTime);
+            return new BsonDateTime(utcDateTime);
         }
 
-        private BsonValue ParseDateTimeStrict() {
+        private BsonValue ParseDateTimeExtendedJson() {
             VerifyToken(":");
             var valueToken = PopToken();
             if (valueToken.Type != JsonTokenType.Int32 && valueToken.Type != JsonTokenType.Int64) {
@@ -769,47 +853,242 @@ namespace MongoDB.Bson.IO {
                 throw new FileFormatException(message);
             }
             VerifyToken("}");
-            return BsonDateTime.Create(valueToken.Int64Value);
+            return new BsonDateTime(valueToken.Int64Value);
         }
 
-        private BsonValue ParseDateTimeTenGen() {
+        private BsonValue ParseDateTimeConstructor(
+            bool withNew
+        ) {
             VerifyToken("(");
-            var valueToken = PopToken();
-            if (valueToken.Type != JsonTokenType.Int32 && valueToken.Type != JsonTokenType.Int64) {
-                var message = string.Format("JSON reader expected an integer but found '{0}'.", valueToken.Lexeme);
+
+            // Date when used without "new" behaves differently (JavaScript has some weird parts)
+            if (!withNew) {
+                VerifyToken(")");
+                var dateTimeString = FormatJavaScriptDateTimeString(DateTime.UtcNow);
+                return new BsonString(dateTimeString);
+            }
+
+            var token = PopToken();
+            if (token.Lexeme == ")") {
+                return new BsonDateTime(DateTime.UtcNow);
+            } else if (token.Type == JsonTokenType.String) {
+                VerifyToken(")");
+                var dateTimeString = token.StringValue;
+                var dateTime = ParseJavaScriptDateTimeString(dateTimeString);
+                return new BsonDateTime(dateTime);
+            } else if (token.Type == JsonTokenType.Int32 || token.Type == JsonTokenType.Int64) {
+                var args = new List<long>();
+                while (true) {
+                    args.Add(token.Int64Value);
+                    token = PopToken();
+                    if (token.Lexeme == ")") {
+                        break;
+                    }
+                    if (token.Lexeme != ",") {
+                        var message = string.Format("JSON reader expected a ',' or a ')' but found '{0}'.", token.Lexeme);
+                        throw new FileFormatException(message);
+                    }
+                    token = PopToken();
+                    if (token.Type != JsonTokenType.Int32 && token.Type != JsonTokenType.Int64) {
+                        var message = string.Format("JSON reader expected an integer but found '{0}'.", token.Lexeme);
+                        throw new FileFormatException(message);
+                    }
+                }
+                switch (args.Count) {
+                    case 1:
+                        return new BsonDateTime(args[0]);
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                        var year = (int) args[0];
+                        var month = (int) args[1] + 1; // JavaScript starts at 0 but .NET starts at 1
+                        var day = (int) args[2];
+                        var hours = (args.Count >= 4) ? (int) args[3] : 0;
+                        var minutes = (args.Count >= 5) ? (int) args[4] : 0;
+                        var seconds = (args.Count >= 6) ? (int) args[5] : 0;
+                        var milliseconds = (args.Count == 7) ? (int) args[6] : 0;
+                        var dateTime = new DateTime(year, month, day, hours, minutes, seconds, milliseconds, DateTimeKind.Utc);
+                        return new BsonDateTime(dateTime);
+                    default:
+                        var message = string.Format("JSON reader expected 1 or 3-7 integers but found {0}.", args.Count);
+                        throw new FileFormatException(message);
+                }
+            } else {
+                var message = string.Format("JSON reader expected an integer or a string but found '{0}'.", token.Lexeme);
                 throw new FileFormatException(message);
             }
-            VerifyToken(")");
-            return BsonDateTime.Create(valueToken.Int64Value);
         }
 
         private BsonType ParseExtendedJson() {
             var nameToken = PopToken();
             if (nameToken.Type == JsonTokenType.String || nameToken.Type == JsonTokenType.UnquotedString) {
                 switch (nameToken.StringValue) {
-                    case "$binary": currentValue = ParseBinaryStrict(); return BsonType.Binary;
-                    case "$code": return ParseJavaScript(out currentValue);
-                    case "$date": currentValue = ParseDateTimeStrict(); return BsonType.DateTime;
-                    case "$maxkey": currentValue = ParseMaxKey(); return BsonType.MaxKey;
-                    case "$minkey": currentValue = ParseMinKey(); return BsonType.MinKey;
-                    case "$oid": currentValue = ParseObjectIdStrict(); return BsonType.ObjectId;
-                    case "$regex": currentValue = ParseRegularExpression(); return BsonType.RegularExpression;
-                    case "$symbol": currentValue = ParseSymbol(); return BsonType.Symbol;
-                    case "$timestamp": currentValue = ParseTimestamp(); return BsonType.Timestamp;
+                    case "$binary": currentValue = ParseBinDataExtendedJson(); return BsonType.Binary;
+                    case "$code": return ParseJavaScriptExtendedJson(out currentValue);
+                    case "$date": currentValue = ParseDateTimeExtendedJson(); return BsonType.DateTime;
+                    case "$maxkey": currentValue = ParseMaxKeyExtendedJson(); return BsonType.MaxKey;
+                    case "$minkey": currentValue = ParseMinKeyExtendedJson(); return BsonType.MinKey;
+                    case "$oid": currentValue = ParseObjectIdExtendedJson(); return BsonType.ObjectId;
+                    case "$regex": currentValue = ParseRegularExpressionExtendedJson(); return BsonType.RegularExpression;
+                    case "$symbol": currentValue = ParseSymbolExtendedJson(); return BsonType.Symbol;
+                    case "$timestamp": currentValue = ParseTimestampExtendedJson(); return BsonType.Timestamp;
                 }
             }
             PushToken(nameToken);
             return BsonType.Document;
         }
 
-        private BsonValue ParseMaxKey() {
+        private DateTime ParseJavaScriptDateTimeString(
+            string dateTimeString
+        ) {
+            // if DateTime.TryParse succeeds we're done, otherwise assume it's an RFC 822 formatted DateTime string
+            DateTime dateTime;
+            if (DateTime.TryParse(dateTimeString, out dateTime)) {
+                return dateTime;
+            } else {
+                var rfc822DateTimePattern =
+                    @"^((?<dayOfWeek>(Mon|Tue|Wed|Thu|Fri|Sat|Sun)), )?" +
+                    @"(?<day>\d{1,2}) +" +
+                    @"(?<monthName>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) " +
+                    @"(?<year>\d{2}|\d{4}) " +
+                    @"(?<hour>\d{1,2}):" +
+                    @"(?<minutes>\d{1,2}):" +
+                    @"(?<seconds>\d{1,2}(.\d{1,7})?) " +
+                    @"(?<zone>UT|GMT|EST|EDT|CST|CDT|MST|MDT|PST|PDT|[A-Z]|([+-]\d{4}))$";
+                var match = Regex.Match(dateTimeString, rfc822DateTimePattern);
+                if (match.Success) {
+                    var day = int.Parse(match.Groups["day"].Value);
+
+                    int month;
+                    var monthName = match.Groups["monthName"].Value;
+                    switch (monthName) {
+                        case "Jan": month = 1; break;
+                        case "Feb": month = 2; break;
+                        case "Mar": month = 3; break;
+                        case "Apr": month = 4; break;
+                        case "May": month = 5; break;
+                        case "Jun": month = 6; break;
+                        case "Jul": month = 7; break;
+                        case "Aug": month = 8; break;
+                        case "Sep": month = 9; break;
+                        case "Oct": month = 10; break;
+                        case "Nov": month = 11; break;
+                        case "Dec": month = 12; break;
+                        default:
+                            var message = string.Format("\"{0}\" is not a valid RFC 822 month name.", monthName);
+                            throw new FileFormatException(message);
+                    }
+
+                    var yearString = match.Groups["year"].Value;
+                    int year = int.Parse(yearString);
+                    if (yearString.Length == 2) {
+                        year += 2000;
+                        if (year - DateTime.UtcNow.Year >= 19) { year -= 100; }
+                    }
+
+                    var hour = int.Parse(match.Groups["hour"].Value);
+                    var minutes = int.Parse(match.Groups["minutes"].Value);
+                    var secondsString = match.Groups["seconds"].Value;
+                    int seconds;
+                    double milliseconds;
+                    if (secondsString.Contains(".")) {
+                        var timeSpan = TimeSpan.FromSeconds(double.Parse(secondsString));
+                        seconds = timeSpan.Seconds;
+                        milliseconds = timeSpan.TotalMilliseconds - seconds * 1000;
+                    } else {
+                        seconds = int.Parse(secondsString);
+                        milliseconds = 0;
+                    }
+
+                    dateTime = new DateTime(year, month, day, hour, minutes, seconds, DateTimeKind.Utc).AddMilliseconds(milliseconds);
+
+                    // check day of week before converting to UTC
+                    var dayOfWeekString = match.Groups["dayOfWeek"].Value;
+                    if (dayOfWeekString != "") {
+                        DayOfWeek dayOfWeek;
+                        switch (dayOfWeekString) {
+                            case "Mon": dayOfWeek = DayOfWeek.Monday; break;
+                            case "Tue": dayOfWeek = DayOfWeek.Tuesday; break;
+                            case "Wed": dayOfWeek = DayOfWeek.Wednesday; break;
+                            case "Thu": dayOfWeek = DayOfWeek.Thursday; break;
+                            case "Fri": dayOfWeek = DayOfWeek.Friday; break;
+                            case "Sat": dayOfWeek = DayOfWeek.Saturday; break;
+                            case "Sun": dayOfWeek = DayOfWeek.Sunday; break;
+                            default:
+                                var message = string.Format("\"{0}\" is not a valid RFC 822 day name.", dayOfWeekString);
+                                throw new FileFormatException(message);
+                        }
+                        if (dateTime.DayOfWeek != dayOfWeek) {
+                            var message = string.Format("\"{0}\" is not the right day of the week for {1}.", dayOfWeekString, dateTime.ToString("o"));
+                            throw new FileFormatException(message);
+                        }
+                    }
+
+                    TimeSpan offset;
+                    var zone = match.Groups["zone"].Value;
+                    switch (zone) {
+                        case "UT": case "GMT": case "Z": offset = TimeSpan.Zero; break;
+                        case "EST": offset = TimeSpan.FromHours(-5); break;
+                        case "EDT": offset = TimeSpan.FromHours(-4); break;
+                        case "CST": offset = TimeSpan.FromHours(-6); break;
+                        case "CDT": offset = TimeSpan.FromHours(-5); break;
+                        case "MST": offset = TimeSpan.FromHours(-7); break;
+                        case "MDT": offset = TimeSpan.FromHours(-6); break;
+                        case "PST": offset = TimeSpan.FromHours(-8); break;
+                        case "PDT": offset = TimeSpan.FromHours(-7); break;
+                        case "A": offset = TimeSpan.FromHours(-1); break;
+                        case "B": offset = TimeSpan.FromHours(-2); break;
+                        case "C": offset = TimeSpan.FromHours(-3); break;
+                        case "D": offset = TimeSpan.FromHours(-4); break;
+                        case "E": offset = TimeSpan.FromHours(-5); break;
+                        case "F": offset = TimeSpan.FromHours(-6); break;
+                        case "G": offset = TimeSpan.FromHours(-7); break;
+                        case "H": offset = TimeSpan.FromHours(-8); break;
+                        case "I": offset = TimeSpan.FromHours(-9); break;
+                        case "K": offset = TimeSpan.FromHours(-10); break;
+                        case "L": offset = TimeSpan.FromHours(-11); break;
+                        case "M": offset = TimeSpan.FromHours(-12); break;
+                        case "N": offset = TimeSpan.FromHours(1); break;
+                        case "O": offset = TimeSpan.FromHours(2); break;
+                        case "P": offset = TimeSpan.FromHours(3); break;
+                        case "Q": offset = TimeSpan.FromHours(4); break;
+                        case "R": offset = TimeSpan.FromHours(5); break;
+                        case "S": offset = TimeSpan.FromHours(6); break;
+                        case "T": offset = TimeSpan.FromHours(7); break;
+                        case "U": offset = TimeSpan.FromHours(8); break;
+                        case "V": offset = TimeSpan.FromHours(9); break;
+                        case "W": offset = TimeSpan.FromHours(10); break;
+                        case "X": offset = TimeSpan.FromHours(11); break;
+                        case "Y": offset = TimeSpan.FromHours(12); break;
+                        default:
+                            var offsetSign = zone.Substring(0);
+                            var offsetHours = zone.Substring(1, 2);
+                            var offsetMinutes = zone.Substring(3, 2);
+                            offset = TimeSpan.FromHours(int.Parse(offsetHours)) + TimeSpan.FromMinutes(int.Parse(offsetMinutes));
+                            if (offsetSign == "-") {
+                                offset = -offset;
+                            }
+                            break;
+                    }
+
+                    return dateTime.Add(-offset);
+                } else {
+                    var message = string.Format("The DateTime string \"{0}\" is not a valid DateTime string for either .NET or JavaScript.", dateTimeString);
+                    throw new FileFormatException(message);
+                }
+            }
+        }
+
+        private BsonValue ParseMaxKeyExtendedJson() {
             VerifyToken(":");
             VerifyToken("1");
             VerifyToken("}");
             return BsonMaxKey.Value;
         }
 
-        private BsonValue ParseMinKey() {
+        private BsonValue ParseMinKeyExtendedJson() {
             VerifyToken(":");
             VerifyToken("1");
             VerifyToken("}");
@@ -826,27 +1105,43 @@ namespace MongoDB.Bson.IO {
             }
             switch (typeToken.Lexeme) {
                 case "BinData":
-                    value = ParseBinaryShell();
+                    value = ParseBinDataConstructor();
                     return BsonType.Binary;
                 case "Date":
-                    value = ParseDateTimeTenGen();
+                    value = ParseDateTimeConstructor(true); // withNew = true
                     return BsonType.DateTime;
+                case "HexData":
+                    value = ParseHexDataConstructor();
+                    return BsonType.Binary;
                 case "ISODate":
-                    value = ParseDateTimeShell();
+                    value = ParseISODateTimeConstructor();
                     return BsonType.DateTime;
                 case "NumberLong":
-                    value = ParseNumberLong();
+                    value = ParseNumberLongConstructor();
                     return BsonType.Int64;
                 case "ObjectId":
-                    value = ParseObjectIdShell();
+                    value = ParseObjectIdConstructor();
                     return BsonType.ObjectId;
+                case "RegExp":
+                    value = ParseRegularExpressionConstructor();
+                    return BsonType.RegularExpression;
+                case "UUID":
+                case "GUID":
+                case "CSUUID":
+                case "CSGUID":
+                case "JUUID":
+                case "JGUID":
+                case "PYUUID":
+                case "PYGUID":
+                    value = ParseUUIDConstructor(typeToken.Lexeme);
+                    return BsonType.Binary;
                 default:
                     var message = string.Format("JSON reader expected a type name but found '{0}'.", typeToken.Lexeme);
                     throw new FileFormatException(message);
             }
         }
 
-        private BsonValue ParseNumberLong() {
+        private BsonValue ParseNumberLongConstructor() {
             VerifyToken("(");
             var valueToken = PopToken();
             long value;
@@ -862,7 +1157,7 @@ namespace MongoDB.Bson.IO {
             return BsonInt64.Create(value);
         }
 
-        private BsonValue ParseObjectIdShell() {
+        private BsonValue ParseObjectIdConstructor() {
             VerifyToken("(");
             var valueToken = PopToken();
             if (valueToken.Type != JsonTokenType.String) {
@@ -873,7 +1168,7 @@ namespace MongoDB.Bson.IO {
             return BsonObjectId.Create(valueToken.StringValue);
         }
 
-        private BsonValue ParseObjectIdStrict() {
+        private BsonValue ParseObjectIdExtendedJson() {
             VerifyToken(":");
             var valueToken = PopToken();
             if (valueToken.Type != JsonTokenType.String) {
@@ -884,26 +1179,55 @@ namespace MongoDB.Bson.IO {
             return BsonObjectId.Create(valueToken.StringValue);
         }
 
-        private BsonValue ParseRegularExpression() {
+        private BsonValue ParseRegularExpressionConstructor() {
+            VerifyToken("(");
+            var patternToken = PopToken();
+            if (patternToken.Type != JsonTokenType.String) {
+                var message = string.Format("JSON reader expected a string but found '{0}'.", patternToken.Lexeme);
+                throw new FileFormatException(message);
+            }
+            var options = "";
+            var commaToken = PopToken();
+            if (commaToken.Lexeme == ",") {
+                var optionsToken = PopToken();
+                if (optionsToken.Type != JsonTokenType.String) {
+                    var message = string.Format("JSON reader expected a string but found '{0}'.", optionsToken.Lexeme);
+                    throw new FileFormatException(message);
+                }
+                options = optionsToken.StringValue;
+            } else {
+                PushToken(commaToken);
+            }
+            VerifyToken(")");
+            return BsonRegularExpression.Create(patternToken.StringValue, options);
+        }
+
+        private BsonValue ParseRegularExpressionExtendedJson() {
             VerifyToken(":");
             var patternToken = PopToken();
             if (patternToken.Type != JsonTokenType.String) {
                 var message = string.Format("JSON reader expected a string but found '{0}'.", patternToken.Lexeme);
                 throw new FileFormatException(message);
             }
-            VerifyToken(",");
-            VerifyString("$options");
-            VerifyToken(":");
-            var optionsToken = PopToken();
-            if (optionsToken.Type != JsonTokenType.String) {
-                var message = string.Format("JSON reader expected a string but found '{0}'.", optionsToken.Lexeme);
-                throw new FileFormatException(message);
+            var options = "";
+            var commaToken = PopToken();
+            if (commaToken.Lexeme == ",") {
+                VerifyString("$options");
+                VerifyToken(":");
+                var optionsToken = PopToken();
+                if (optionsToken.Type != JsonTokenType.String) {
+                    var message = string.Format("JSON reader expected a string but found '{0}'.", optionsToken.Lexeme);
+                    throw new FileFormatException(message);
+                }
+                options = optionsToken.StringValue;
+            } else {
+                PushToken(commaToken);
             }
             VerifyToken("}");
-            return BsonRegularExpression.Create(patternToken.StringValue, optionsToken.StringValue);
+            return BsonRegularExpression.Create(patternToken.StringValue, options);
         }
 
-        private BsonValue ParseSymbol() {
+        private BsonValue ParseSymbolExtendedJson() {
             VerifyToken(":");
             var nameToken = PopToken();
             if (nameToken.Type != JsonTokenType.String) {
@@ -914,20 +1238,59 @@ namespace MongoDB.Bson.IO {
             return BsonString.Create(nameToken.StringValue); // will be converted to a BsonSymbol at a higher level
         }
 
-        private BsonValue ParseTimestamp() {
+        private BsonValue ParseTimestampExtendedJson() {
             VerifyToken(":");
             var valueToken = PopToken();
             long value;
             if (valueToken.Type == JsonTokenType.Int32 || valueToken.Type == JsonTokenType.Int64) {
                 value = valueToken.Int64Value;
             } else if (valueToken.Type == JsonTokenType.UnquotedString && valueToken.Lexeme == "NumberLong") {
-                value = ParseNumberLong().AsInt64;
+                value = ParseNumberLongConstructor().AsInt64;
             } else {
                 var message = string.Format("JSON reader expected an integer but found '{0}'.", valueToken.Lexeme);
                 throw new FileFormatException(message);
             }
             VerifyToken("}");
             return BsonTimestamp.Create(value);
+        }
+
+        private BsonValue ParseUUIDConstructor(
+            string uuidConstructorName
+        ) {
+            VerifyToken("(");
+            var bytesToken = PopToken();
+            if (bytesToken.Type != JsonTokenType.String) {
+                var message = string.Format("JSON reader expected a string but found '{0}'.", bytesToken.Lexeme);
+                throw new FileFormatException(message);
+            }
+            VerifyToken(")");
+            var hexString = bytesToken.StringValue.Replace("{", "").Replace("}", "").Replace("-", "");
+            var bytes = BsonUtils.ParseHexString(hexString);
+            var guid = GuidConverter.FromBytes(bytes, GuidRepresentation.Standard);
+            GuidRepresentation guidRepresentation;
+            switch (uuidConstructorName) {
+                case "CSUUID":
+                case "CSGUID":
+                    guidRepresentation = GuidRepresentation.CSharpLegacy;
+                    break;
+                case "JUUID":
+                case "JGUID":
+                    guidRepresentation = GuidRepresentation.JavaLegacy;
+                    break;
+                case "PYUUID":
+                case "PYGUID":
+                    guidRepresentation = GuidRepresentation.PythonLegacy;
+                    break;
+                case "UUID":
+                case "GUID":
+                    guidRepresentation = GuidRepresentation.Standard;
+                    break;
+                default:
+                    throw new BsonInternalException("Unexpected uuidConstructorName");
+            }
+            bytes = GuidConverter.ToBytes(guid, guidRepresentation);
+            var subType = (guidRepresentation == GuidRepresentation.Standard) ? BsonBinarySubType.UuidStandard : BsonBinarySubType.UuidLegacy;
+            return new BsonBinaryData(bytes, subType, guidRepresentation);
         }
 
         private JsonToken PopToken() {
@@ -954,7 +1317,7 @@ namespace MongoDB.Bson.IO {
             string expectedString
         ) {
             var token = PopToken();
-            if (token.Type != JsonTokenType.String || token.StringValue != expectedString) {
+            if ((token.Type != JsonTokenType.String && token.Type != JsonTokenType.UnquotedString) || token.StringValue != expectedString) {
                 var message = string.Format("JSON reader expected '{0}' but found '{1}'.", expectedString, token.StringValue);
                 throw new FileFormatException(message);
             }

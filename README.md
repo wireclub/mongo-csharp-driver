@@ -15,8 +15,6 @@ apidoc: http://api.mongodb.org/csharp/ (coming soon)
 
 http://jira.mongodb.org/browse/CSHARP
 
-see also: BreakingChanges.txt
-
 ### Maintainers:
 * Robert Stam               robert@10gen.com
 * Sridhar Nanjundeswaran    sridhar@10gen.com
@@ -27,8 +25,10 @@ see also: BreakingChanges.txt
 * Teun Duynstee             teun@duynstee.com
 * Ken Egozi                 mail@kenegozi.com
 * Simon Green               simon@captaincodeman.com
+* Brian Knight              brianknight10@gmail.com  
 * Richard Kreuter           richard@10gen.com
 * Kevin Lewis               kevin.l.lewis@gmail.com
+* Dow Liu                   redforks@gmail.com
 * Andrew Rondeau            github@andrewrondeau.com
 * Ed Rooth                  edward.rooth@wallstreetjapan.com
 * Testo                     test1@doramail.com   

@@ -207,7 +207,7 @@ namespace MongoDB.BsonUnitTests.IO {
 
         [Test]
         public void TestDateTimeTengen() {
-            var json = "Date(0)";
+            var json = "new Date(0)";
             using (bsonReader = BsonReader.Create(json)) {
                 Assert.AreEqual(BsonType.DateTime, bsonReader.ReadBsonType());
                 Assert.AreEqual(0, bsonReader.ReadDateTime());
@@ -302,21 +302,42 @@ namespace MongoDB.BsonUnitTests.IO {
 
         [Test]
         public void TestGuid() {
-            var guid = new Guid("B5F21E0C2A0D42d6AD03D827008D8AB6");
-            var json = "BinData(3, \"DB7ytQ0q1kKtA9gnAI2Ktg==\")"; // test plain BinData without "new"
+            var guid = new Guid("B5F21E0C2A0D42D6AD03D827008D8AB6");
+            var json = "CSUUID(\"B5F21E0C2A0D42D6AD03D827008D8AB6\")";
             using (bsonReader = BsonReader.Create(json)) {
                 Assert.AreEqual(BsonType.Binary, bsonReader.ReadBsonType());
                 byte[] bytes;
                 BsonBinarySubType subType;
-                bsonReader.ReadBinaryData(out bytes, out subType);
+                GuidRepresentation guidRepresentation;
+                bsonReader.ReadBinaryData(out bytes, out subType, out guidRepresentation);
                 Assert.IsTrue(bytes.SequenceEqual(guid.ToByteArray()));
                 Assert.AreEqual(BsonBinarySubType.UuidLegacy, subType);
+                Assert.AreEqual(GuidRepresentation.CSharpLegacy, guidRepresentation);
                 Assert.AreEqual(BsonReaderState.Done, bsonReader.State);
             }
-            var expected = "new " + json; // ToJson output will have "new" prepended
+            var expected = "CSUUID(\"b5f21e0c-2a0d-42d6-ad03-d827008d8ab6\")";
             Assert.AreEqual(expected, BsonSerializer.Deserialize<Guid>(new StringReader(json)).ToJson());
         }
 
+        [Test]
+        public void TestHexData() {
+            var expectedBytes = new byte[] { 0x01, 0x23 };
+            var json = "HexData(0, \"123\")";
+            using (bsonReader = BsonReader.Create(json)) {
+                Assert.AreEqual(BsonType.Binary, bsonReader.ReadBsonType());
+                byte[] bytes;
+                BsonBinarySubType subType;
+                GuidRepresentation guidRepresentation;
+                bsonReader.ReadBinaryData(out bytes, out subType, out guidRepresentation);
+                Assert.IsTrue(expectedBytes.SequenceEqual(bytes));
+                Assert.AreEqual(BsonBinarySubType.Binary, subType);
+                Assert.AreEqual(GuidRepresentation.Unspecified, guidRepresentation);
+                Assert.AreEqual(BsonReaderState.Done, bsonReader.State);
+            }
+            var expectedJson = "new BinData(0, \"ASM=\")";
+            Assert.AreEqual(expectedJson, BsonSerializer.Deserialize<byte[]>(new StringReader(json)).ToJson());
+        }
+        
         [Test]
         public void TestInt32() {
             var json = "123";
@@ -497,13 +518,13 @@ namespace MongoDB.BsonUnitTests.IO {
 
         [Test]
         public void TestRegularExpressionShell() {
-            var json = "/pattern/gim";
+            var json = "/pattern/imxs";
             using (bsonReader = BsonReader.Create(json)) {
                 Assert.AreEqual(BsonType.RegularExpression, bsonReader.ReadBsonType());
                 string pattern, options;
                 bsonReader.ReadRegularExpression(out pattern, out options);
                 Assert.AreEqual("pattern", pattern);
-                Assert.AreEqual("gim", options);
+                Assert.AreEqual("imxs", options);
                 Assert.AreEqual(BsonReaderState.Done, bsonReader.State);
             }
             Assert.AreEqual(json, BsonSerializer.Deserialize<BsonRegularExpression>(new StringReader(json)).ToJson());
@@ -511,13 +532,13 @@ namespace MongoDB.BsonUnitTests.IO {
 
         [Test]
         public void TestRegularExpressionStrict() {
-            var json = "{ \"$regex\" : \"pattern\", \"$options\" : \"gim\" }";
+            var json = "{ \"$regex\" : \"pattern\", \"$options\" : \"imxs\" }";
             using (bsonReader = BsonReader.Create(json)) {
                 Assert.AreEqual(BsonType.RegularExpression, bsonReader.ReadBsonType());
                 string pattern, options;
                 bsonReader.ReadRegularExpression(out pattern, out options);
                 Assert.AreEqual("pattern", pattern);
-                Assert.AreEqual("gim", options);
+                Assert.AreEqual("imxs", options);
                 Assert.AreEqual(BsonReaderState.Done, bsonReader.State);
             }
             var settings = new JsonWriterSettings { OutputMode = JsonOutputMode.Strict };

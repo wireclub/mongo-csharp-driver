@@ -118,6 +118,7 @@
     <Compile Include="Builders\BuilderBase.cs" />
     <Compile Include="Builders\CollectionOptionsBuilder.cs" />
     <Compile Include="Builders\FieldsBuilder.cs" />
+    <Compile Include="Builders\GeoHaystackSearchOptionsBuilder.cs" />
     <Compile Include="Builders\GeoNearOptionsBuilder.cs" />
     <Compile Include="Builders\GroupByBuilder.cs" />
     <Compile Include="Builders\IndexKeysBuilder.cs" />
@@ -130,13 +131,19 @@
     <Compile Include="Core\CommandResults\CommandResult.cs" />
     <Compile Include="Core\CommandResults\DatabaseStatsResult.cs" />
     <Compile Include="Core\CommandResults\FindAndModifyResult.cs" />
+    <Compile Include="Core\CommandResults\GeoHaystackSearchResult.cs" />
     <Compile Include="Core\CommandResults\GeoNearResult.cs" />
     <Compile Include="Core\CommandResults\GetLastErrorResult.cs" />
+    <Compile Include="Core\CommandResults\GetProfilingLevelResult.cs" />
     <Compile Include="Core\CommandResults\SafeModeResult.cs" />
     <Compile Include="Core\CommandResults\ValidateCollectionResult.cs" />
+    <Compile Include="Core\ConnectWaitFor.cs" />
+    <Compile Include="Core\EvalFlags.cs" />
+    <Compile Include="Core\InsertFlags.cs" />
     <Compile Include="Core\Interfaces\IMongoCollectionOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoCommand.cs" />
     <Compile Include="Core\Interfaces\IMongoFields.cs" />
+    <Compile Include="Core\Interfaces\IMongoGeoHaystackSearchOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoGeoNearOptions.cs" />
     <Compile Include="Core\Interfaces\IMongoGroupBy.cs" />
     <Compile Include="Core\Interfaces\IMongoIndexKeys.cs" />
@@ -149,12 +156,16 @@
     <Compile Include="Core\MongoCollectionSettings.cs" />
     <Compile Include="Core\MongoDatabaseSettings.cs" />
     <Compile Include="Core\MongoDBRef.cs" />
+    <Compile Include="Core\MongoInsertOptions.cs" />
     <Compile Include="Core\MongoServerBuildInfo.cs" />
     <Compile Include="Core\MongoServerInstance.cs" />
     <Compile Include="Core\MongoServerSettings.cs" />
+    <Compile Include="Core\MongoUpdateOptions.cs" />
     <Compile Include="Core\MongoUrlBuilder.cs" />
     <Compile Include="Core\Trace.cs" />
     <Compile Include="Core\MongoUser.cs" />
+    <Compile Include="Core\ProfilingLevel.cs" />
+    <Compile Include="Core\SystemProfileInfo.cs" />
     <Compile Include="Core\Wrappers\BaseWrapper.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsDocument.cs" />
     <Compile Include="Core\Wrappers\CollectionOptionsWrapper.cs" />
@@ -162,6 +173,8 @@
     <Compile Include="Core\Wrappers\CommandWrapper.cs" />
     <Compile Include="Core\Wrappers\FieldsDocument.cs" />
     <Compile Include="Core\Wrappers\FieldsWrapper.cs" />
+    <Compile Include="Core\Wrappers\GeoHaystackSearchOptionsDocument.cs" />
+    <Compile Include="Core\Wrappers\GeoHaystackSearchOptionsWrapper.cs" />
     <Compile Include="Core\Wrappers\GeoNearOptionsDocument.cs" />
     <Compile Include="Core\Wrappers\GeoNearOptionsWrapper.cs" />
     <Compile Include="Core\Wrappers\GroupByDocument.cs" />
@@ -204,6 +217,13 @@
     <Compile Include="Internal\MongoReplyMessage.cs" />
     <Compile Include="Internal\MongoUpdateMessage.cs" />
     <Compile Include="Internal\ReplicaSetConnector.cs" />
+    <Compile Include="Linq\MongoLinqFindQuery.cs" />
+    <Compile Include="Linq\MongoLinqExtensionMethods.cs" />
+    <Compile Include="Linq\MongoQueryable.cs" />
+    <Compile Include="Linq\MongoQueryProvider.cs" />
+    <Compile Include="Linq\MongoLinqTranslator.cs" />
+    <Compile Include="Linq\MongoLinqQuery.cs" />
+    <Compile Include="Linq\TypeSystem.cs" />
     <Compile Include="MongoUtils.cs" />
     <Compile Include="MongoDefaults.cs" />
     <Compile Include="GridFS\MongoGridFS.cs" />
@@ -257,6 +277,9 @@
       <ProductName>Windows Installer 3.1</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Core\GetIndexesResult.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

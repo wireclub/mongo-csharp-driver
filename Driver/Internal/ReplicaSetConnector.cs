@@ -26,6 +26,7 @@ namespace MongoDB.Driver.Internal {
     internal class ReplicaSetConnector {
         #region private fields
         private MongoServer server;
+        private int connectionAttempt;
         private DateTime timeoutAt;
         private BlockingQueue<ConnectResponse> responseQueue = new BlockingQueue<ConnectResponse>();
         private List<ConnectArgs> connects = new List<ConnectArgs>();
@@ -35,22 +36,25 @@ namespace MongoDB.Driver.Internal {
 
         #region constructors
         internal ReplicaSetConnector(
-            MongoServer server
+            MongoServer server,
+            int connectionAttempt
         ) {
             this.server = server;
+            this.connectionAttempt = connectionAttempt;
         }
         #endregion
 
         #region internal methods
         internal void Connect(
-            TimeSpan timeout
+            TimeSpan timeout,
+            ConnectWaitFor waitFor
         ) {
             timeoutAt = DateTime.UtcNow + timeout;
 
-            // connect to all servers in the seed list in parallel (they will report responses back through the responseQueue)
-            server.ClearInstances();
-            foreach (var address in server.Settings.Servers) {
-                QueueConnect(address);
+            // connect to all server instances in parallel (they will report responses back through the responseQueue)
+            // the set of Instances initially comes from the seed list, but is adjusted to the official set once connected
+            foreach (var serverInstance in server.Instances) {
+                QueueConnect(serverInstance);
             }
 
             // process the responses as they come back and return as soon as we have connected to the primary
@@ -65,25 +69,57 @@ namespace MongoDB.Driver.Internal {
 
                 ProcessResponse(response);
 
-                // return as soon as we've connected to the primary
-                var serverInstance = response.ServerInstance;
-                if (serverInstance.State == MongoServerState.Connected && serverInstance.IsPrimary) {
-                    // make sure this serverInstance is still an instance of this server
-                    // it might have been removed if the connection string used a DNS alias for the host
-                    // (in which case we have already queued a connect using the official host name and should see that response shortly)
-                    if (server.Instances.Contains(serverInstance)) {
+                // return as soon as we can (according to the waitFor mode specified)
+                bool exitEarly = false;
+                switch (waitFor) {
+                    case ConnectWaitFor.All:
+                        if (server.Instances.All(i => i.State == MongoServerState.Connected)) {
+                            exitEarly = true;
+                        }
+                        break;
+                    case ConnectWaitFor.AnySlaveOk:
+                        if (server.Instances.Any(i => (i.IsPrimary || i.IsSecondary || i.IsPassive) && i.State == MongoServerState.Connected)) {
+                            exitEarly = true;
+                        }
+                        break;
+                   case ConnectWaitFor.Primary:
+                        var primary = server.Primary;
+                        if (primary != null && primary.State == MongoServerState.Connected) {
+                            exitEarly = true;
+                        }
+                        break;
+                    default:
+                        throw new ArgumentException("Invalid ConnectWaitFor value.");
+                }
+
+                if (exitEarly) {
+                    if (responses.Count < connects.Count) {
                         // process any additional responses in the background
                         ThreadPool.QueueUserWorkItem(ProcessAdditionalResponsesWorkItem);
-                        return;
                     }
+                    return;
                 }
             }
 
+            string waitForString;
+            switch (waitFor) {
+                case ConnectWaitFor.All: waitForString = "all members"; break;
+                case ConnectWaitFor.AnySlaveOk: waitForString = "any slaveOk member"; break;
+                case ConnectWaitFor.Primary: waitForString = "the primary member"; break;
+                default: throw new ArgumentException("Invalid ConnectWaitFor value.");
+            }
+
             var exceptions = responses.Select(r => r.ServerInstance.ConnectException).Where(e => e != null).ToArray();
-            var innerException = exceptions.FirstOrDefault();
-            var exception = new MongoConnectionException("Unable to connect to server.", innerException);
-            exception.Data.Add("InnerExceptions", exceptions);
-            throw exception;
+            var firstException = exceptions.FirstOrDefault();
+            string message;
+            if (firstException == null) {
+                message = string.Format("Unable to connect to {0} of the replica set.", waitForString);
+            } else {
+                message = string.Format("Unable to connect to {0} of the replica set: {1}.", waitForString, firstException.Message);
+            }
+            var connectionException = new MongoConnectionException(message, firstException);
+            connectionException.Data.Add("InnerExceptions", exceptions); // useful when there is more than one
+            throw connectionException;
         }
         #endregion
 
@@ -99,8 +135,8 @@ namespace MongoDB.Driver.Internal {
             try {
                 serverInstance.Connect(true); // slaveOk
                 response.IsMasterResult = serverInstance.IsMasterResult;
-            } catch {
-                // exception is already stored in serverInstance.ConnectException and will be handled later
+            } catch (Exception ex) {
+                response.Exception = ex;
             }
 
             args.ResponseQueue.Enqueue(response);
@@ -172,14 +208,16 @@ namespace MongoDB.Driver.Internal {
 
             // remove server instances created from the seed list that turn out to be invalid
             var invalidInstances = server.Instances.Where(i => !validAddresses.Contains(i.Address)).ToArray(); // force evaluation
-            foreach (var instance in invalidInstances) {
-                server.RemoveInstance(instance);
+            foreach (var invalidInstance in invalidInstances) {
+                server.RemoveInstance(invalidInstance);
             }
 
             // add any server instances that were missing from the seed list
             foreach (var address in validAddresses) {
                 if (!server.Instances.Any(i => i.Address == address)) {
-                    QueueConnect(address);
+                    var missingInstance = new MongoServerInstance(server, address);
+                    server.AddInstance(missingInstance);
+                    QueueConnect(missingInstance);
                 }
             }
         }
@@ -188,7 +226,19 @@ namespace MongoDB.Driver.Internal {
             ConnectResponse response
         ) {
             responses.Add(response);
-            if (response.ServerInstance.ConnectException != null) {
+
+            // don't process response if it threw an exception
+            if (response.Exception != null) {
+                return;
+            }
+
+            // don't process response if Disconnect was called before the response was received
+            if (server.State == MongoServerState.Disconnected || server.State == MongoServerState.Disconnecting) {
+                return;
+            }
+
+            // don't process response if it was for a previous connection attempt
+            if (connectionAttempt != server.ConnectionAttempt) {
                 return;
             }
 
@@ -215,11 +265,8 @@ namespace MongoDB.Driver.Internal {
         }
 
         private void QueueConnect(
-            MongoServerAddress address
+            MongoServerInstance serverInstance
         ) {
-            var serverInstance = new MongoServerInstance(server, address);
-            server.AddInstance(serverInstance);
-
             var args = new ConnectArgs {
                 ServerInstance = serverInstance,
                 ResponseQueue = responseQueue
@@ -240,6 +287,7 @@ namespace MongoDB.Driver.Internal {
         private class ConnectResponse {
             public MongoServerInstance ServerInstance { get; set; }
             public CommandResult IsMasterResult { get; set; }
+            public Exception Exception { get; set; }
         }
         #endregion
     }

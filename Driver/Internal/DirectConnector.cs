@@ -25,13 +25,16 @@ namespace MongoDB.Driver.Internal {
     internal class DirectConnector {
         #region private fields
         private MongoServer server;
+        private int connectionAttempt;
         #endregion
 
         #region constructors
         internal DirectConnector(
-            MongoServer server
+            MongoServer server,
+            int connectionAttempt
         ) {
             this.server = server;
+            this.connectionAttempt = connectionAttempt;
         }
         #endregion
 
@@ -39,31 +42,25 @@ namespace MongoDB.Driver.Internal {
         internal void Connect(
             TimeSpan timeout
         ) {
-            server.ClearInstances();
-
             var exceptions = new List<Exception>();
             foreach (var address in server.Settings.Servers) {
                 try {
-                    var serverInstance = new MongoServerInstance(server, address);
-                    server.AddInstance(serverInstance);
-                    try {
-                        serverInstance.Connect(server.Settings.SlaveOk); // TODO: what about timeout?
-                    } catch {
-                        server.RemoveInstance(serverInstance);
-                        throw;
+                    var serverInstance = server.Instance;
+                    if (serverInstance.Address != address) {
+                        serverInstance.Address = address;
                     }
-
+                    serverInstance.Connect(server.Settings.SlaveOk); // TODO: what about timeout?
                     return;
                 } catch (Exception ex) {
                     exceptions.Add(ex);
                 }
             }
 
-            var innerException = exceptions.FirstOrDefault();
-            var connectionException = new MongoConnectionException("Unable to connect to server.", innerException);
-            if (exceptions.Count > 1) {
-                connectionException.Data.Add("exceptions", exceptions);
-            }
+            var firstAddress = server.Settings.Servers.First();
+            var firstException = exceptions.First();
+            var message = string.Format("Unable to connect to server {0}: {1}.", firstAddress, firstException.Message);
+            var connectionException = new MongoConnectionException(message, firstException);
+            connectionException.Data.Add("InnerExceptions", exceptions); // useful when there is more than one
             throw connectionException;
         }
         #endregion
