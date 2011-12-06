@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Configuration;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Web;
 using AOD;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
+using MongoDB.Driver.Internal;
 
 namespace MongoDB.Driver.Core
 {
@@ -22,7 +22,7 @@ namespace MongoDB.Driver.Core
         public int Unacceptable;
     }
 
-    public static class Trace
+    internal static class Trace
     {
         private const int QueryTimeSlow = 20;
         private const int QueryTimeTragic = 100;
@@ -48,6 +48,11 @@ namespace MongoDB.Driver.Core
 
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
         {
+            if (HttpContext.Current != null)
+            {
+                
+            }
+
             // Execute and time action
             var timer = Stopwatch.StartNew();
             var result = action();
