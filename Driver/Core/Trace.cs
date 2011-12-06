@@ -24,6 +24,9 @@ namespace MongoDB.Driver.Core
 
     internal static class Trace
     {
+        private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
+        private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
+
         private const int QueryTimeSlow = 20;
         private const int QueryTimeTragic = 100;
         private const int QueryTimeUnacceptable = 200;
@@ -87,6 +90,9 @@ namespace MongoDB.Driver.Core
                 else if (timer.Elapsed.TotalMilliseconds > QueryTimeSlow)
                     record.Slow++;
             }
+
+			if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
+				Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, timer.ElapsedMilliseconds, collection, query));
 
             return result;
         }
