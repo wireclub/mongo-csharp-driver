@@ -66,11 +66,8 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;
             }
 
-            // Generate identifier
-            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
-            identifier = Regex.Replace(identifier, "(\\[.*\\])", "@array");
-
             // Increment times
+            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
             using (DisposableLock.Lock(_performance))
             {
                 var record = _performance.AcquireKey(identifier);
