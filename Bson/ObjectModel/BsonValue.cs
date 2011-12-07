@@ -1181,6 +1181,18 @@ namespace MongoDB.Bson {
         public void WriteTo(
             BsonWriter bsonWriter
         ) {
+            // WIRECLUB ------------------------------------------------------------------
+            if (bsonWriter is JsonWriter && bsonType != BsonType.Document)
+            {
+                var settings = (JsonWriterSettings)bsonWriter.Settings;
+                if (settings.OutputMode == JsonOutputMode.Structural)
+                {
+                    bsonWriter.WriteString("@");
+                    return;
+                }                
+            }
+            // WIRECLUB ------------------------------------------------------------------
+            
             switch (bsonType) {
                 case BsonType.Array:
                     ((BsonArray) this).WriteTo(bsonWriter);

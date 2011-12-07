@@ -24,12 +24,12 @@ namespace MongoDB.Driver.Core
 
     public static class Trace
     {
-        private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
-        private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
-
         private const int QueryTimeSlow = 20;
         private const int QueryTimeTragic = 100;
         private const int QueryTimeUnacceptable = 200;
+
+        private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
+        private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
 
         private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
         
@@ -67,7 +67,7 @@ namespace MongoDB.Driver.Core
             }
 
             // Generate identifier
-            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.JavaScript }));
+            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
             identifier = Regex.Replace(identifier, "(\\[.*\\])", "@array");
 
             // Increment times

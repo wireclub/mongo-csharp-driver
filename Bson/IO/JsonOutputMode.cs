@@ -39,9 +39,9 @@ namespace MongoDB.Bson.IO {
         /// Use a format that can be pasted in to the MongoDB shell.
         /// </summary>
         Shell,
-        /// <summary>
-        /// Do not output leaf values
-        /// </summary>
+
+        // WIRECLUB ----------------------------------------------------------
         Structural
+        // WIRECLUB ----------------------------------------------------------
     }
 }
