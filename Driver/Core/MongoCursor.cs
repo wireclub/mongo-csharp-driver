@@ -18,7 +18,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
+using System.Web;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver.Builders;
@@ -60,7 +60,14 @@ namespace MongoDB.Driver {
             this.database = collection.Database;
             this.collection = collection;
             this.query = query;
-            this.slaveOk = collection.Settings.SlaveOk;
+
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            bool? slaveOverride = null;
+            if (HttpContext.Current != null && HttpContext.Current.Items["SlaveOk"] != null && bool.Parse(HttpContext.Current.Items["SlaveOk"].ToString()))
+                slaveOverride = true;
+            // WIRECLUB -----------------------------------------------------------------------------------------
+
+            this.slaveOk = slaveOverride ?? collection.Settings.SlaveOk;
         }
         #endregion
 

@@ -51,9 +51,6 @@ namespace MongoDB.Driver.Core
 
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
         {
-            // If not logged in or no httpcontext
-            
-
             // Execute and time action
             var timer = Stopwatch.StartNew();
             var result = action();

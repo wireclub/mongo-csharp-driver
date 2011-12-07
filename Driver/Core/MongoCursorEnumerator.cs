@@ -178,7 +178,7 @@ namespace MongoDB.Driver {
         #endregion
 
         #region private methods
-        private MongoConnection AcquireConnection_Original() {
+        private MongoConnection AcquireConnection() {
             if (serverInstance == null) {
                 // first time we need a connection let Server.AcquireConnection pick the server instance
                 var connection = cursor.Server.AcquireConnection(cursor.Database, cursor.SlaveOk);
@@ -188,24 +188,6 @@ namespace MongoDB.Driver {
                 // all subsequent requests for the same cursor must go to the same server instance
                 return cursor.Server.AcquireConnection(cursor.Database, serverInstance);
             }
-        }
-
-        private MongoConnection AcquireConnection()
-        {
-            bool? slaveOverride = null;
-            if (HttpContext.Current != null && HttpContext.Current.Items["SlaveOk"] != null && bool.Parse(HttpContext.Current.Items["SlaveOk"].ToString()))
-                slaveOverride = true;
-
-            if (serverInstance == null)
-            {
-                // first time we need a connection let Server.AcquireConnection pick the server instance
-                var connection = cursor.Server.AcquireConnection(cursor.Database, slaveOverride ??cursor.SlaveOk);
-                serverInstance = connection.ServerInstance;
-                return connection;
-            }
-
-            // all subsequent requests for the same cursor must go to the same server instance
-            return cursor.Server.AcquireConnection(cursor.Database, serverInstance);
         }
 
         private MongoReplyMessage<TDocument> GetFirst() {
@@ -241,7 +223,11 @@ namespace MongoDB.Driver {
 					if ((cursor.Flags & QueryFlags.AwaitData) > 0)
 						return GetReply(connection, message);
 					else
-						return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetFirst", cursor.Collection.FullName, WrapQuery());
+					{
+                        // WIRECLUB -----------------------------------------------------------------------------------------
+					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetFirst", cursor.Collection.FullName, WrapQuery());
+                        // WIRECLUB -----------------------------------------------------------------------------------------
+					}
                 }
             } finally {
                 cursor.Server.ReleaseConnection(connection);
@@ -271,7 +257,11 @@ namespace MongoDB.Driver {
 					if ((cursor.Flags & QueryFlags.AwaitData) > 0)
 						return GetReply(connection, message);
 					else
-						return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetMore", cursor.Collection.FullName, WrapQuery());
+					{
+                        // WIRECLUB -----------------------------------------------------------------------------------------
+					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "GetMore", cursor.Collection.FullName, WrapQuery());
+                        // WIRECLUB -----------------------------------------------------------------------------------------
+					}
                 }
             } finally {
                 cursor.Server.ReleaseConnection(connection);
