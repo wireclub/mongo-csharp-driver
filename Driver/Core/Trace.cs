@@ -67,7 +67,7 @@ namespace MongoDB.Driver.Core
             }
 
             // Generate identifier
-            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
+            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.JavaScript }));
             identifier = Regex.Replace(identifier, "(\\[.*\\])", "@array");
 
             // Increment times
