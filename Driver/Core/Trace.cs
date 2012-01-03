@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 using System.Web;
 using AOD;
 using MongoDB.Bson;
@@ -67,7 +66,7 @@ namespace MongoDB.Driver.Core
             }
 
             // Increment times
-            var identifier = "{0} - {1}".Merge(collection, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
+            var identifier = "{0} - {1} - {2}".Merge(collection, context, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
             using (DisposableLock.Lock(_performance))
             {
                 var record = _performance.AcquireKey(identifier);

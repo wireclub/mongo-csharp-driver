@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -1416,22 +1415,37 @@ namespace MongoDB.Driver {
             IMongoUpdate update,
             MongoUpdateOptions options
         ) {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            return Core.Trace.DoWrappedTrace(() =>
+            {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+
             var updateBuilder = update as UpdateBuilder;
-            if (updateBuilder != null) {
-                if (updateBuilder.Document.ElementCount == 0) {
+            if (updateBuilder != null)
+            {
+                if (updateBuilder.Document.ElementCount == 0)
+                {
                     throw new ArgumentException("Update called with an empty UpdateBuilder that has no update operations.");
                 }
             }
 
             var connection = server.AcquireConnection(database, false); // not slaveOk
-            try {
+            try
+            {
                 var writerSettings = GetWriterSettings(connection);
-                using (var message = new MongoUpdateMessage(writerSettings, FullName, options.CheckElementNames, options.Flags, query, update)) {
+                using (var message = new MongoUpdateMessage(writerSettings, FullName, options.CheckElementNames, options.Flags, query, update))
+                {
                     return connection.SendMessage(message, options.SafeMode);
                 }
-            } finally {
+            }
+            finally
+            {
                 server.ReleaseConnection(connection);
             }
+
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            }, "UPDATE", FullName, query);
+            // WIRECLUB -----------------------------------------------------------------------------------------
         }
 
         /// <summary>
