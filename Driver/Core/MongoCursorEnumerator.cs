@@ -225,7 +225,7 @@ namespace MongoDB.Driver {
 					else
 					{
                         // WIRECLUB -----------------------------------------------------------------------------------------
-					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "FIND", cursor.Collection.FullName, WrapQuery());
+					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "find", cursor.Collection.FullName, WrapQuery());
                         // WIRECLUB -----------------------------------------------------------------------------------------
 					}
                 }
@@ -259,7 +259,7 @@ namespace MongoDB.Driver {
 					else
 					{
                         // WIRECLUB -----------------------------------------------------------------------------------------
-					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "MORE", cursor.Collection.FullName, WrapQuery());
+					    return Core.Trace.DoWrappedTrace(() => GetReply(connection, message), "findMore", cursor.Collection.FullName, WrapQuery());
                         // WIRECLUB -----------------------------------------------------------------------------------------
 					}
                 }

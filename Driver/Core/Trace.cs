@@ -68,7 +68,7 @@ namespace MongoDB.Driver.Core
             }
 
             // Increment times
-            var identifier = "{0} - {1} - {2}".Merge(collection, context, query == null ? "all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
+            var identifier = "{0}.{1}({2})".Merge(collection, context, query == null ? "$all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
             using (DisposableLock.Lock(_performance))
             {
                 var record = _performance.AcquireKey(identifier);
