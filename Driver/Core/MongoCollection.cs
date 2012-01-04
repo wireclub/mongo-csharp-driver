@@ -1028,29 +1028,42 @@ namespace MongoDB.Driver {
             IEnumerable documents,
             MongoInsertOptions options
         ) {
-            if (documents == null) {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            return Core.Trace.DoWrappedTrace(() =>
+            {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+
+            if (documents == null)
+            {
                 throw new ArgumentNullException("documents");
             }
             var connection = server.AcquireConnection(database, false); // not slaveOk
-            try {
+            try
+            {
                 var safeMode = options.SafeMode;
                 List<SafeModeResult> results = (safeMode.Enabled) ? new List<SafeModeResult>() : null;
 
                 var writerSettings = GetWriterSettings(connection);
-                using (var message = new MongoInsertMessage(writerSettings, FullName, options.CheckElementNames, options.Flags)) {
+                using (var message = new MongoInsertMessage(writerSettings, FullName, options.CheckElementNames, options.Flags))
+                {
                     message.WriteToBuffer(); // must be called before AddDocument
 
-                    foreach (var document in documents) {
-                        if (document == null) {
+                    foreach (var document in documents)
+                    {
+                        if (document == null)
+                        {
                             throw new ArgumentException("Batch contains one or more null documents.");
                         }
-                        if (settings.AssignIdOnInsert) {
+                        if (settings.AssignIdOnInsert)
+                        {
                             var serializer = BsonSerializer.LookupSerializer(document.GetType());
                             object id;
                             Type idNominalType;
                             IIdGenerator idGenerator;
-                            if (serializer.GetDocumentId(document, out id, out idNominalType, out idGenerator)) {
-                                if (idGenerator != null && idGenerator.IsEmpty(id)) {
+                            if (serializer.GetDocumentId(document, out id, out idNominalType, out idGenerator))
+                            {
+                                if (idGenerator != null && idGenerator.IsEmpty(id))
+                                {
                                     id = idGenerator.GenerateId(this, document);
                                     serializer.SetDocumentId(document, id);
                                 }
@@ -1058,7 +1071,8 @@ namespace MongoDB.Driver {
                         }
                         message.AddDocument(nominalType, document);
 
-                        if (message.MessageLength > connection.ServerInstance.MaxMessageLength) {
+                        if (message.MessageLength > connection.ServerInstance.MaxMessageLength)
+                        {
                             byte[] lastDocument = message.RemoveLastDocument();
                             var intermediateResult = connection.SendMessage(message, safeMode);
                             if (safeMode.Enabled) { results.Add(intermediateResult); }
@@ -1071,9 +1085,15 @@ namespace MongoDB.Driver {
 
                     return results;
                 }
-            } finally {
+            }
+            finally
+            {
                 server.ReleaseConnection(connection);
             }
+                
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            }, "Insert", FullName, null);
+            // WIRECLUB -----------------------------------------------------------------------------------------
         }
 
         /// <summary>

@@ -1,4 +1,6 @@
-﻿using System;
+﻿#pragma warning disable 1591
+
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
@@ -59,9 +61,9 @@ namespace MongoDB.Driver.Core
             if (HttpContext.Current != null)
             {
                 var count = HttpContext.Current.Items["dbcount"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbcount"]);
-                var time = HttpContext.Current.Items["dbtime"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbtime"]);
-
                 HttpContext.Current.Items["dbcount"] = count + 1;
+
+                var time = HttpContext.Current.Items["dbtime"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbtime"]);
                 HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;
             }
 
@@ -89,3 +91,5 @@ namespace MongoDB.Driver.Core
         }
     }
 }
+
+#pragma warning restore 1591
