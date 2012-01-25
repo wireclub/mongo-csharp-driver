@@ -29,16 +29,11 @@ namespace MongoDB.Driver.Core
         private const int QueryTimeTragic = 100;
         private const int QueryTimeUnacceptable = 200;
 
+        private static readonly bool _enableProfiler = bool.Parse(ConfigurationManager.AppSettings["mongodb.profiler"] ?? "false");
         private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
 
         private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
-        
-        public static Dictionary<string, QueryPerformanceData> CopyPerformanceData()
-        {
-            using (DisposableLock.Lock(_performance))
-                return new Dictionary<string, QueryPerformanceData>(_performance);
-        }
 
         public static Dictionary<string, QueryPerformanceData> CollectPerformanceData()
         {
@@ -67,21 +62,24 @@ namespace MongoDB.Driver.Core
                 HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;
             }
 
-            // Increment times
-            var identifier = "{0}.{1}({2})".Merge(collection, context, query == null ? "$all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
-            using (DisposableLock.Lock(_performance))
-            {
-                var record = _performance.AcquireKey(identifier);
-                record.Identifier = identifier;
-                record.Milliseconds += timer.Elapsed.TotalMilliseconds;
-                record.Count++;
+            // Capture profiler information
+            if (_enableProfiler)
+            {                
+                var identifier = "{0}.{1}({2})".Merge(collection, context, query == null ? "$all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural }));
+                using (DisposableLock.Lock(_performance))
+                {
+                    var record = _performance.AcquireKey(identifier);
+                    record.Identifier = identifier;
+                    record.Milliseconds += timer.Elapsed.TotalMilliseconds;
+                    record.Count++;
 
-                if (timer.Elapsed.TotalMilliseconds > QueryTimeUnacceptable)
-                    record.Unacceptable++;
-                else if (timer.Elapsed.TotalMilliseconds > QueryTimeTragic)
-                    record.Tragic++;
-                else if (timer.Elapsed.TotalMilliseconds > QueryTimeSlow)
-                    record.Slow++;
+                    if (timer.Elapsed.TotalMilliseconds > QueryTimeUnacceptable)
+                        record.Unacceptable++;
+                    else if (timer.Elapsed.TotalMilliseconds > QueryTimeTragic)
+                        record.Tragic++;
+                    else if (timer.Elapsed.TotalMilliseconds > QueryTimeSlow)
+                        record.Slow++;
+                }
             }
 
 			if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
