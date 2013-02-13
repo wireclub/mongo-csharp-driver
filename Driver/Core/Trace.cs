@@ -83,7 +83,7 @@ namespace MongoDB.Driver.Core
             }
 
 			if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
-				Debug.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, timer.ElapsedMilliseconds, collection, query));
+				System.Diagnostics.Trace.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, timer.ElapsedMilliseconds, collection, query));
 
             return result;
         }
