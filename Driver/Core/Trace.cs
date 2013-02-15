@@ -53,17 +53,15 @@ namespace MongoDB.Driver.Core
             }
         }
 
-		private static readonly List<QueryTraceData> _traceBuffer = new List<QueryTraceData>();
+		private static List<QueryTraceData> _traceBuffer = new List<QueryTraceData>();
 
-		public static QueryTraceData[] FetchTraceBuffer()
+		public static List<QueryTraceData> FetchTraceBuffer()
 		{
-			try
+			using (DisposableLock.Lock(_traceBuffer))
 			{
-				return _traceBuffer.ToArray();
-			}
-			finally
-			{
-				_traceBuffer.Clear();
+				var result = _traceBuffer;
+				_traceBuffer = new List<QueryTraceData>();
+				return result;
 			}
 		}
 
@@ -116,7 +114,7 @@ namespace MongoDB.Driver.Core
 				}
 				catch (HttpException ex) { }
 
-		        using (DisposableLock.Lock(_performance))
+				using (DisposableLock.Lock(_traceBuffer))
 		        {
 			        _traceBuffer.Add(new QueryTraceData()
 				        {
@@ -133,7 +131,7 @@ namespace MongoDB.Driver.Core
 				        });
 
 			        // Clear the trace buffer if it gets too large, something should be reading it back
-					if(_traceBuffer.Count > 100)
+					if(_traceBuffer.Count > 1000)
 						_traceBuffer.Clear();
 		        }
 	        }
