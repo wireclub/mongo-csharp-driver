@@ -23,6 +23,14 @@ namespace MongoDB.Driver.Core
         public int Unacceptable;
     }
 
+	public class QueryTraceData
+	{
+		public string RequestContext;
+		public string Collection;
+		public string Query;
+		public double Milliseconds;
+	}
+
     public static class Trace
     {
         private const int QueryTimeSlow = 20;
@@ -45,6 +53,20 @@ namespace MongoDB.Driver.Core
             }
         }
 
+		private static readonly List<QueryTraceData> _traceBuffer = new List<QueryTraceData>();
+
+		public static QueryTraceData[] FetchTraceBuffer()
+		{
+			try
+			{
+				return _traceBuffer.ToArray();
+			}
+			finally
+			{
+				_traceBuffer.Clear();
+			}
+		}
+
         public static T DoWrappedTrace<T>(TraceDelegate<T> action, string context, string collection, object query)
         {
             // Execute and time action
@@ -53,13 +75,14 @@ namespace MongoDB.Driver.Core
             timer.Stop();
 
             // Update request context
+	        
             if (HttpContext.Current != null)
             {
                 var count = HttpContext.Current.Items["dbcount"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbcount"]);
                 HttpContext.Current.Items["dbcount"] = count + 1;
 
                 var time = HttpContext.Current.Items["dbtime"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbtime"]);
-                HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;
+                HttpContext.Current.Items["dbtime"] = time + timer.ElapsedMilliseconds;	            
             }
 
             // Capture profiler information
@@ -82,10 +105,40 @@ namespace MongoDB.Driver.Core
                 }
             }
 
-			if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
-				System.Diagnostics.Trace.WriteLine(string.Format("[Mongo:{0}] {1}ms {2} {3}", context, timer.ElapsedMilliseconds, collection, query));
+	        if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
+	        {
 
-            return result;
+				var httpRequestUrl = "";
+				try
+				{
+					if (HttpContext.Current != null)
+						httpRequestUrl = HttpContext.Current.Request.Url.ToString();
+				}
+				catch (HttpException ex) { }
+
+		        using (DisposableLock.Lock(_performance))
+		        {
+			        _traceBuffer.Add(new QueryTraceData()
+				        {
+					        RequestContext = httpRequestUrl,
+					        Collection = collection,
+					        Query =
+						        "{0}.{1}({2})".Merge(collection, context,
+						                             query == null
+							                             ? "$all"
+							                             : query.ToJson(query.GetType(),
+							                                            new JsonWriterSettings {OutputMode = JsonOutputMode.Structural})),
+					        Milliseconds = timer.Elapsed.TotalMilliseconds
+
+				        });
+
+			        // Clear the trace buffer if it gets too large, something should be reading it back
+					if(_traceBuffer.Count > 100)
+						_traceBuffer.Clear();
+		        }
+	        }
+
+	        return result;
         }
     }
 }
