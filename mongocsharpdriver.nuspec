@@ -2,10 +2,10 @@
 <package>
   <metadata>
     <id>mongocsharpdriver</id>
-    <version>1.3</version>
+    <version>0.0.0</version>
     <title>Official MongoDB C# driver</title>
     <authors>10gen, Inc.</authors>
-    <owners>Sridhar Nanjundeswaran</owners>
+    <owners>Sridhar Nanjundeswaran, Robert Stam, Craig Wilson</owners>
     <iconUrl>http://jobs.mongodb.org/files/logos/889002/889002.png</iconUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <description>Official 10gen supported C# driver for MongoDB</description>
@@ -15,14 +15,20 @@
     <language>en-US</language>
   </metadata>
   <files>
-    <file src="Bson\bin\Debug\MongoDB.Bson.dll" target="lib\net35" />
-    <file src="Bson\bin\Debug\MongoDB.Bson.pdb" target="lib\net35" />
-    <file src="Bson\bin\Debug\MongoDB.Bson.xml" target="lib\net35" />
-    <file src="Driver\bin\Debug\MongoDB.Driver.dll" target="lib\net35" />
-    <file src="Driver\bin\Debug\MongoDB.Driver.pdb" target="lib\net35" />
-    <file src="Driver\bin\Debug\MongoDB.Driver.XML" target="lib\net35" />
-    <file src="Help\CSharpDriverDocs.chm" target="" />
-    <file src="Release Notes v1.3.txt" target="" />
+    <file src="artifacts\net35\build\MongoDB.Bson.dll" target="lib\net35" />
+    <file src="artifacts\net35\build\MongoDB.Bson.pdb" target="lib\net35" />
+    <file src="artifacts\net35\build\MongoDB.Bson.xml" target="lib\net35" />
+    <file src="artifacts\net35\build\MongoDB.Driver.dll" target="lib\net35" />
+    <file src="artifacts\net35\build\MongoDB.Driver.pdb" target="lib\net35" />
+    <file src="artifacts\net35\build\MongoDB.Driver.XML" target="lib\net35" />
+    <file src="artifacts\net40\build\MongoDB.Bson.dll" target="lib\net40" />
+    <file src="artifacts\net40\build\MongoDB.Bson.pdb" target="lib\net40" />
+    <file src="artifacts\net40\build\MongoDB.Bson.xml" target="lib\net40" />
+    <file src="artifacts\net40\build\MongoDB.Driver.dll" target="lib\net40" />
+    <file src="artifacts\net40\build\MongoDB.Driver.pdb" target="lib\net40" />
+    <file src="artifacts\net40\build\MongoDB.Driver.XML" target="lib\net40" />
     <file src="License.rtf" target ="" />
+    <file src="MongoDB.Bson\**\*.cs" target="src\MongoDB.Bson" />
+    <file src="MongoDB.Driver\**\*.cs" target="src\MongoDB.Driver" />
   </files>
 </package>

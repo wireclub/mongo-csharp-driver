@@ -5,6 +5,9 @@ obj
 *.suo
 *.vsp
 *.csproj.VisualState.xml
+*.vbproj.VisualState.xml
+*.cache
+TestResults
 
 # MonoDevelop artifacts
 *.pidb
@@ -25,5 +28,15 @@ Help
 *.swp
 *~
 
-#Nupkg artifacts
+# Nupkg artifacts
 *.nupkg
+
+# NCrunch artifacts
+*.ncrunch*
+
+# Merge tool artifacts
+*.cs.orig
+*.vb.orig
+
+# Other
+artifacts
