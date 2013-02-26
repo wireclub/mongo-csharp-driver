@@ -331,7 +331,11 @@ namespace MongoDB.Driver
 
                 var writerSettings = _cursor.Collection.GetWriterSettings(connection);
                 var queryMessage = new MongoQueryMessage(writerSettings, _cursor.Collection.FullName, _queryFlags, _cursor.Skip, numberToReturn, WrapQuery(), _cursor.Fields);
-                return GetReply(connection, queryMessage);
+
+                // WIRECLUB -----------------------------------------------------------------------------------------
+                return Core.Trace.DoWrappedTrace(() => GetReply(connection, queryMessage), "find", _cursor.Collection.FullName, WrapQuery());
+                // WIRECLUB -----------------------------------------------------------------------------------------
+
             }
             finally
             {
@@ -359,7 +363,10 @@ namespace MongoDB.Driver
                 }
 
                 var getMoreMessage = new MongoGetMoreMessage(_cursor.Collection.FullName, numberToReturn, _openCursorId);
-                return GetReply(connection, getMoreMessage);
+
+                // WIRECLUB -----------------------------------------------------------------------------------------
+                return Core.Trace.DoWrappedTrace(() => GetReply(connection, getMoreMessage), "findMore", _cursor.Collection.FullName, WrapQuery());
+                // WIRECLUB -----------------------------------------------------------------------------------------
             }
             finally
             {

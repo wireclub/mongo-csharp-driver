@@ -1123,6 +1123,11 @@ namespace MongoDB.Driver
             IEnumerable documents,
             MongoInsertOptions options)
         {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            return Core.Trace.DoWrappedTrace(() =>
+            {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+
             if (documents == null)
             {
                 throw new ArgumentNullException("documents");
@@ -1193,6 +1198,10 @@ namespace MongoDB.Driver
             {
                 _server.ReleaseConnection(connection);
             }
+
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            }, "insert", FullName, null);
+            // WIRECLUB -----------------------------------------------------------------------------------------
         }
 
         /// <summary>
@@ -1537,6 +1546,11 @@ namespace MongoDB.Driver
         /// <returns>A WriteConcernResult (or null if WriteConcern is disabled).</returns>
         public virtual WriteConcernResult Update(IMongoQuery query, IMongoUpdate update, MongoUpdateOptions options)
         {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            return Core.Trace.DoWrappedTrace(() =>
+            {
+            // WIRECLUB -----------------------------------------------------------------------------------------
+
             var updateBuilder = update as UpdateBuilder;
             if (updateBuilder != null)
             {
@@ -1563,6 +1577,10 @@ namespace MongoDB.Driver
             {
                 _server.ReleaseConnection(connection);
             }
+
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            }, "update", FullName, query);
+            // WIRECLUB -----------------------------------------------------------------------------------------
         }
 
         /// <summary>

@@ -17,6 +17,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Web;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver.Builders;
@@ -58,6 +59,11 @@ namespace MongoDB.Driver
             _collection = collection;
             _query = query;
             _readPreference = readPreference;
+
+            // WIRECLUB -----------------------------------------------------------------------------------------
+            if (HttpContext.Current != null && HttpContext.Current.Items["SlaveOk"] != null && bool.Parse(HttpContext.Current.Items["SlaveOk"].ToString()))
+                _readPreference = ReadPreference.SecondaryPreferred;
+            // WIRECLUB -----------------------------------------------------------------------------------------
         }
 
         // public properties

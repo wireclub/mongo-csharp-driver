@@ -35,6 +35,13 @@ namespace MongoDB.Bson.IO
         /// <summary>
         /// Use a format that can be pasted in to the MongoDB shell.
         /// </summary>
-        Shell
+        Shell,
+
+        // WIRECLUB ----------------------------------------------------------
+        /// <summary>
+        /// For query tracing
+        /// </summary>
+        Structural
+        // WIRECLUB ----------------------------------------------------------
     }
 }
