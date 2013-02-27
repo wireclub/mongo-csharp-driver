@@ -123,7 +123,7 @@ namespace MongoDB.Driver.Core
                     {
                         RequestContext = httpRequestUrl,
                         Collection = collection,
-                        Query = "{0}.{1}({2})".Merge(collection, context, query == null ? "$all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.Structural })),
+                        Query = "{0}.{1}({2})".Merge(collection, context, query == null ? "$all" : query.ToJson(query.GetType(), new JsonWriterSettings { OutputMode = JsonOutputMode.JavaScript })),
                         Milliseconds = timer.Elapsed.TotalMilliseconds
 
                     });
