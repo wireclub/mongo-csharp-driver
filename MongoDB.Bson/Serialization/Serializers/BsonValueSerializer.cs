@@ -102,6 +102,19 @@ namespace MongoDB.Bson.Serialization.Serializers
             }
 
             var bsonValue = (BsonValue)value;
+
+            // WIRECLUB ------------------------------------------------------------------
+            if (bsonWriter is JsonWriter && bsonValue.BsonType != BsonType.Document)
+            {
+                var settings = (JsonWriterSettings)bsonWriter.Settings;
+                if (settings.OutputMode == JsonOutputMode.Structural)
+                {
+                    bsonWriter.WriteString("@");
+                    return;
+                }
+            }
+            // WIRECLUB ------------------------------------------------------------------
+
             switch (bsonValue.BsonType)
             {
                 case BsonType.Array: BsonArraySerializer.Instance.Serialize(bsonWriter, typeof(BsonArray), bsonValue, options); break;

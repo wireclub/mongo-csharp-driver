@@ -40,6 +40,7 @@ namespace MongoDB.Driver.Core
 
         private static readonly bool _enableProfiler = bool.Parse(ConfigurationManager.AppSettings["mongodb.profiler"] ?? "false");
         private static readonly bool _enableTracing = bool.Parse(ConfigurationManager.AppSettings["mongodb.trace"] ?? "true");
+        private static readonly bool _enableLogging = bool.Parse(ConfigurationManager.AppSettings["mongodb.log"] ?? "true");
         private static readonly int _traceThreshold = int.Parse(ConfigurationManager.AppSettings["mongodb.trace-threshold"] ?? "0");
 
         private static Dictionary<string, QueryPerformanceData> _performance = new Dictionary<string, QueryPerformanceData>();
@@ -74,7 +75,6 @@ namespace MongoDB.Driver.Core
             timer.Stop();
 
             // Update request context
-
             if (HttpContext.Current != null)
             {
                 var count = HttpContext.Current.Items["dbcount"] == null ? 0 : Convert.ToInt32(HttpContext.Current.Items["dbcount"]);
@@ -106,7 +106,6 @@ namespace MongoDB.Driver.Core
 
             if (_enableTracing && timer.ElapsedMilliseconds >= _traceThreshold)
             {
-
                 var httpRequestUrl = string.Empty;
                 try
                 {

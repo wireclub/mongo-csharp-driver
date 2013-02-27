@@ -1266,18 +1266,6 @@ namespace MongoDB.Bson
         [Obsolete("Use BsonSerializer.Serialize<BsonValue> instead.")]
         public void WriteTo(BsonWriter bsonWriter)
         {
-            // WIRECLUB ------------------------------------------------------------------
-            if (bsonWriter is JsonWriter && _bsonType != BsonType.Document)
-            {
-                var settings = (JsonWriterSettings)bsonWriter.Settings;
-                if (settings.OutputMode == JsonOutputMode.Structural)
-                {
-                    bsonWriter.WriteString("@");
-                    return;
-                }
-            }
-            // WIRECLUB ------------------------------------------------------------------
-
             BsonSerializer.Serialize(bsonWriter, this);
         }
 
