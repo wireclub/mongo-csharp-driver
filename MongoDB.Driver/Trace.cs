@@ -6,9 +6,87 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.Web;
-using AOD;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
+
+using System.Threading;
+
+public static class LockingConstants
+{
+    public const int Timeout = 100000;
+}
+
+public struct DisposableLock : IDisposable
+{
+    private readonly object _scope;
+
+    public static bool TimerEnabled;
+    private static long _accumulated;
+
+    public static long TotalTimeWaitingForlock
+    {
+        get
+        {
+            return Interlocked.Read(ref _accumulated);
+        }
+    }
+
+    public static DisposableLock Lock(object scope, int timeout = LockingConstants.Timeout)
+    {
+        var timer = TimerEnabled ? Stopwatch.StartNew() : null;
+        try
+        {
+            if (Monitor.TryEnter(scope, timeout) == false)
+                throw new TimeoutException();
+        }
+        finally
+        {
+            if (timer != null)
+                Interlocked.Add(ref _accumulated, timer.ElapsedMilliseconds);
+        }
+        return new DisposableLock(scope);
+    }
+
+    private DisposableLock(object scope)
+    {
+        _scope = scope;
+    }
+
+    public void Dispose()
+    {
+        Monitor.Exit(_scope);
+    }
+}
+
+public static class DictionaryExtensions
+{
+    public static int IncrementKey<K>(this Dictionary<K, int> dictionary, K key)
+    {
+        return dictionary[key] = dictionary.AcquireKey(key) + 1;
+    }
+
+    public static V AcquireKey<K, V>(this Dictionary<K, V> dictionary, K key) where V : new()
+    {
+        V value;
+        if (dictionary.TryGetValue(key, out value) == false)
+            dictionary[key] = value = new V();
+        return value;
+    }
+
+    public static void AddIfNotPresent<K, V>(this Dictionary<K, V> dictionary, K key, V value)
+    {
+        if (dictionary.ContainsKey(key) == false)
+            dictionary[key] = value;
+    }
+}
+
+public static class StringExtensions
+{
+    public static string Merge(this string str, params object[] data)
+    {
+        return String.Format(str, data);
+    }
+}
 
 namespace MongoDB.Driver.Core
 {

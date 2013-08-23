@@ -63,9 +63,6 @@
     <AssemblyOriginatorKeyFile>..\Keys\TemporaryKeyPair.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ServiceStack.Text">
-      <HintPath>..\..\..\packages\ServiceStack.Text.3.4.1\lib\ServiceStack.Text.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core">
@@ -329,10 +326,6 @@
     <Compile Include="GetIndexesResult.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\AOD\AOD.csproj">
-      <Project>{d16bd9bb-f6d7-449f-9a61-9c5143b51ffe}</Project>
-      <Name>AOD</Name>
-    </ProjectReference>
     <ProjectReference Include="..\MongoDB.Bson\MongoDB.Bson.csproj">
       <Project>{0E9A3A2A-49CD-4F6C-847C-DC79B4B65CE6}</Project>
       <Name>MongoDB.Bson</Name>
